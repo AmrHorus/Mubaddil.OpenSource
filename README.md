@@ -123,9 +123,6 @@ hello
 ```
 Mubaddil
 │
-├── assets
-│   └── mubaddil.ico
-│
 ├── hook
 │   ├── Keyboard_hook.cpp
 │   ├── Keyboard_hook.h
@@ -143,7 +140,9 @@ Mubaddil
 ├── core.py
 ├── ui.py
 ├── requirements.txt
+├─ mubaddil.ico
 └── README.md
+
 ```
 
 ---
