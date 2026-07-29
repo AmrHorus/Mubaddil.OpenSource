@@ -311,7 +311,7 @@ class SystemTray(QObject):
         # تعيين أيقونة افتراضية
         icon = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
         self._tray.setIcon(icon)
-        self._tray.setToolTip("مُبَدِّلْ - تصحيح لوحة المفاتيح")
+        self._tray.setToolTip("مُبَدِّلْ")
         self._menu = QMenu()
         self._menu.setStyleSheet(f"""
             QMenu {{ background-color: {Theme.BG_CARD}; color: {Theme.TEXT_PRIMARY}; border: 1px solid {Theme.BORDER}; border-radius: 8px; padding: 8px; }}
