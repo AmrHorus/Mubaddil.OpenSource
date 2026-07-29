@@ -1,4 +1,3 @@
-# main.py - النقطة الرئيسية لتشغيل برنامج مُبَدِّلْ
 from __future__ import annotations
 import ctypes
 import sys
