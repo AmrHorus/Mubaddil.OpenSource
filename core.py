@@ -1,16 +1,3 @@
-# core.py - قلب برنامج مُبَدِّلْ (مصحح ومجرب) – نسخة الإنتاج
-"""
-core.py - Mubaddil Core Engine
-تحسينات:
-- إعادة كتابة LanguageDetector بخوارزميات متقدمة
-- إعادة كتابة SuggestionEngine بمنطق ثقة دقيق
-- استبدال keybd_event بـ SendInput (Windows API الحديث)
-- إضافة تسجيل احترافي (logging)
-- تحسين التخزين المؤقت (LRU)
-- إصلاح جميع أخطاء خريطة المفاتيح
-- تحسين سلامة الخيوط
-"""
-
 from __future__ import annotations
 
 import ctypes
@@ -450,7 +437,7 @@ class ConverterEngine:
         return self.convert(word, Direction.AR_TO_EN)
 
 
-# ─── SuggestionEngine ───
+# ─── SuggestionEngine (مُعاد كتابته بالكامل) ───
 @dataclass
 class SuggestionResult:
     original: str
@@ -481,68 +468,53 @@ class SuggestionEngine:
         ar_ratio = analysis["ar_ratio"]
         en_ratio = analysis["en_ratio"]
 
-        # إذا كانت الكلمة عربية بالكامل
+        # 1) كلمة عربية بحتة
         if ar_ratio > 0 and en_ratio == 0:
-            # إذا كان التخطيط عربيًا، فلا حاجة للتصحيح
-            if current_layout == Layout.AR:
-                return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
+            # إذا كان التخطيط عربياً والكلمة شائعة عربية، لا نقترح
+            if current_layout == Layout.AR and WordValidator.is_common_arabic(word):
+                return SuggestionResult(word, word, Direction.AR_TO_EN, 0.0, False)
+            # نحاول التحويل إلى إنجليزية
+            converted = self._converter.convert_ar_to_en(word)
+            if converted != word and self._is_plausible(converted, Language.ENGLISH):
+                confidence = self._compute_confidence(converted, Language.ENGLISH, word)
+                return SuggestionResult(word, converted, Direction.AR_TO_EN, confidence, True)
             else:
-                # التخطيط إنجليزي لكن الكلمة عربية -> نحتاج تحويل AR_TO_EN (لتصحيح التخطيط)
-                return self._suggest_arabic(word)
-        # إذا كانت الكلمة إنجليزية بالكامل
+                return SuggestionResult(word, word, Direction.AR_TO_EN, 0.0, False)
+
+        # 2) كلمة إنجليزية بحتة
         elif en_ratio > 0 and ar_ratio == 0:
-            if current_layout == Layout.EN:
+            # إذا كان التخطيط إنجليزياً والكلمة شائعة إنجليزية، لا نقترح
+            if current_layout == Layout.EN and WordValidator.is_common_english(word):
                 return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
+            # نحاول التحويل إلى عربية
+            converted = self._converter.convert_en_to_ar(word)
+            if converted != word and self._is_plausible(converted, Language.ARABIC):
+                confidence = self._compute_confidence(converted, Language.ARABIC, word)
+                return SuggestionResult(word, converted, Direction.EN_TO_AR, confidence, True)
             else:
-                # التخطيط عربي لكن الكلمة إنجليزية -> نحتاج تحويل EN_TO_AR
-                return self._suggest_english(word)
-        # مختلطة
+                return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
+
+        # 3) مختلطة
         else:
-            # إذا كان التخطيط عربياً والأغلب عربي، نحاول التحويل إلى عربي
-            if current_layout == Layout.AR:
-                if ar_ratio > en_ratio:
-                    converted = self._converter.convert_ar_to_en(word)
-                    if converted != word and self._is_plausible(converted, Language.ENGLISH):
-                        return SuggestionResult(word, converted, Direction.AR_TO_EN, 0.6, True)
-                else:
-                    converted = self._converter.convert_en_to_ar(word)
-                    if converted != word and self._is_plausible(converted, Language.ARABIC):
-                        return SuggestionResult(word, converted, Direction.EN_TO_AR, 0.6, True)
+            # نحاول التحويل بناءً على الهيمنة
+            if ar_ratio > en_ratio:
+                # الأغلب عربي، نحاول التحويل إلى إنجليزية
+                converted = self._converter.convert_ar_to_en(word)
+                if converted != word and self._is_plausible(converted, Language.ENGLISH):
+                    return SuggestionResult(word, converted, Direction.AR_TO_EN, 0.6, True)
+                # وإلا نحاول التحويل إلى عربية (قد تكون مكتوبة بتخطيط خاطئ)
+                converted2 = self._converter.convert_en_to_ar(word)
+                if converted2 != word and self._is_plausible(converted2, Language.ARABIC):
+                    return SuggestionResult(word, converted2, Direction.EN_TO_AR, 0.5, True)
             else:
-                # التخطيط إنجليزي
-                if en_ratio > ar_ratio:
-                    converted = self._converter.convert_en_to_ar(word)
-                    if converted != word and self._is_plausible(converted, Language.ARABIC):
-                        return SuggestionResult(word, converted, Direction.EN_TO_AR, 0.6, True)
-                else:
-                    converted = self._converter.convert_ar_to_en(word)
-                    if converted != word and self._is_plausible(converted, Language.ENGLISH):
-                        return SuggestionResult(word, converted, Direction.AR_TO_EN, 0.6, True)
+                # الأغلب إنجليزي، نحاول التحويل إلى عربية
+                converted = self._converter.convert_en_to_ar(word)
+                if converted != word and self._is_plausible(converted, Language.ARABIC):
+                    return SuggestionResult(word, converted, Direction.EN_TO_AR, 0.6, True)
+                converted2 = self._converter.convert_ar_to_en(word)
+                if converted2 != word and self._is_plausible(converted2, Language.ENGLISH):
+                    return SuggestionResult(word, converted2, Direction.AR_TO_EN, 0.5, True)
             return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
-
-    def _suggest_english(self, word: str) -> SuggestionResult:
-        # الكلمة إنجليزية لكن التخطيط عربي -> نحول EN_TO_AR
-        if WordValidator.is_common_english(word):
-            return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
-        converted = self._converter.convert_en_to_ar(word)
-        if converted == word:
-            return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
-        if self._is_plausible(converted, Language.ARABIC):
-            confidence = self._compute_confidence(converted, Language.ARABIC, word)
-            return SuggestionResult(word, converted, Direction.EN_TO_AR, confidence, True)
-        return SuggestionResult(word, word, Direction.EN_TO_AR, 0.0, False)
-
-    def _suggest_arabic(self, word: str) -> SuggestionResult:
-        # الكلمة عربية لكن التخطيط إنجليزي -> نحول AR_TO_EN
-        if WordValidator.is_common_arabic(word):
-            return SuggestionResult(word, word, Direction.AR_TO_EN, 0.0, False)
-        converted = self._converter.convert_ar_to_en(word)
-        if converted == word:
-            return SuggestionResult(word, word, Direction.AR_TO_EN, 0.0, False)
-        if self._is_plausible(converted, Language.ENGLISH):
-            confidence = self._compute_confidence(converted, Language.ENGLISH, word)
-            return SuggestionResult(word, converted, Direction.AR_TO_EN, confidence, True)
-        return SuggestionResult(word, word, Direction.AR_TO_EN, 0.0, False)
 
     def _is_plausible(self, word: str, target_lang: Language) -> bool:
         if not word:
