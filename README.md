@@ -1,168 +1,301 @@
 <div align="center">
 
-# Mubaddil | مبدل
+<img src="mubaddil.ico" width="140" alt="Mubaddil Logo"/>
 
-### Intelligent Keyboard Layout Switcher for Windows
+# مبدل | Mubaddil
 
-Automatically detects when you type using the wrong keyboard layout and fixes it instantly.
+### Smart Arabic ↔ English Keyboard Layout Switcher
 
-![Platform](https://img.shields.io/badge/Platform-Windows-blue)
-![Language](https://img.shields.io/badge/Python-3.11+-yellow)
-![Core](https://img.shields.io/badge/Core-C++20-green)
-![Qt](https://img.shields.io/badge/UI-PySide6-success)
-![License](https://img.shields.io/badge/License-MIT-orange)
+A modern, lightweight, AI-assisted Windows utility that automatically detects words typed using the wrong keyboard layout and instantly suggests or replaces them.
+
+![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%26%2011-0078D6?style=for-the-badge)
+![Language](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Core](https://img.shields.io/badge/Core-C%2B%2B20-00599C?style=for-the-badge&logo=cplusplus)
+![Qt](https://img.shields.io/badge/UI-PySide6-41CD52?style=for-the-badge&logo=qt)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+---
+
+**Fast • Lightweight • Native • Modern • Intelligent**
 
 </div>
 
 ---
 
-# Overview
+# 📖 About
 
-**Mubaddil (مبدل)** is a high-performance Windows utility that automatically detects when text has been typed using the wrong keyboard layout and intelligently converts it to the intended language.
+Typing with the wrong keyboard layout is one of the most common productivity problems for bilingual users.
 
-Instead of deleting and retyping entire words, Mubaddil analyzes your input, predicts the intended language, and offers an instant correction with minimal interruption.
+Instead of deleting everything and typing again, **Mubaddil** automatically detects the mistake, intelligently reconstructs the intended word, and suggests the correct version instantly.
 
-Designed for developers, students, professionals, writers, and anyone who frequently switches between Arabic and English keyboards.
+The application is designed to feel like a native Windows utility with commercial-grade performance, modern UI, and minimal resource usage.
+
+---
+
+# ✨ Features
+
+## 🚀 Intelligent Detection
+
+- Automatic Arabic ↔ English layout detection
+- Confidence-based correction engine
+- Real-time word analysis
+- Smart typo recognition
+- Unicode-aware processing
+- Context-aware language detection
 
 ---
 
-# Why Mubaddil?
+## ⚡ High Performance
 
-Typing with the wrong keyboard layout is one of the most common frustrations for bilingual users.
+- Native C++20 Core
+- Windows Low-Level Keyboard Hook
+- Event-driven architecture
+- Multi-threaded processing
+- Low memory footprint
+- Minimal CPU usage
+- Zero polling
 
-Examples:
+---
+
+## 🎨 Modern User Interface
+
+- Windows 11 inspired design
+- Fluent Design
+- Glassmorphism
+- Acrylic & Mica effects
+- Smooth animations
+- High DPI support
+- Dark & Light themes
+- SVG icon support
+- Adaptive layouts
+
+---
+
+## 🔒 Safe Replacement
+
+- Clipboard preservation
+- Cursor preservation
+- Undo support
+- Instant replacement
+- Non-destructive workflow
+- No data loss
+
+---
+
+## ⚙️ Customization
+
+- Auto replace
+- Manual confirmation
+- Keyboard shortcuts
+- Theme selection
+- Startup behavior
+- Popup duration
+- Logging level
+- Whitelist / Blacklist
+
+---
+
+# 🏗 Architecture
 
 ```
-ghg
-```
-
-↓
-
-```
-لالا
+Mubaddil
+│
+├── hook
+│   ├── Keyboard_hook.cpp
+│   ├── Keyboard_hook.h
+│   └── CMakeLists.txt
+│
+├── main.py
+├── core.py
+├── ui.py
+├── requirements.txt
+│
+└── mubaddil.ico
 ```
 
 ---
+
+# 🧠 Architecture Overview
+
+```
+                 User Typing
+                      │
+                      ▼
+           Windows Keyboard Hook
+                      │
+                      ▼
+              Native C++ Engine
+                      │
+      ┌───────────────┴───────────────┐
+      ▼                               ▼
+ Word Buffer                  Language Detector
+      │                               │
+      └───────────────┬───────────────┘
+                      ▼
+            Confidence Engine
+                      │
+                      ▼
+          Keyboard Layout Mapper
+                      │
+                      ▼
+             Replacement Engine
+                      │
+                      ▼
+            Python Communication
+                      │
+                      ▼
+             Modern Qt Interface
+```
+
+---
+
+# 🛠 Technology Stack
+
+## Frontend
+
+- PySide6
+- Qt Material
+- QtAwesome
+- SuperQt
+
+## Core Engine
+
+- Modern C++20
+- Windows API
+- Win32 Hooks
+- STL
+- Unicode
+- Multi-threading
+
+## Python
+
+- RapidFuzz
+- Regex
+- Loguru
+- PyWin32
+- PyAutoGUI
+- Pyperclip
+- Watchdog
+- CacheTools
+
+---
+
+# ⚙️ How It Works
+
+Example
+
+User types:
 
 ```
 اثممخ
 ```
 
-↓
+Mubaddil detects:
 
 ```
 hello
 ```
 
-Instead of:
+or
 
-❌ Deleting everything
+User types:
 
-❌ Switching keyboard
+```
+ghg
+```
 
-❌ Retyping
+Mubaddil detects:
 
-Mubaddil fixes it automatically.
+```
+لالا
+```
 
----
-
-# Features
-
-## Intelligent Detection
-
-- Automatic keyboard layout detection
-- Arabic ↔ English conversion
-- Smart confidence scoring
-- Dictionary validation
-- Language probability analysis
-- Word frequency analysis
-- RapidFuzz similarity scoring
+The popup appears only when the confidence score indicates the correction is significantly more likely than the original input.
 
 ---
 
-## High Performance Core
+# 🎯 Performance Goals
 
-Built using modern C++20.
-
-Features:
-
-- Low-level Windows Keyboard Hook
-- Unicode processing
-- Word reconstruction
-- Keyboard mapping
-- Fast text conversion
-- Memory optimized
-- Multi-threaded processing
-
----
-
-## Modern Windows UI
-
-Built with PySide6.
-
-Includes:
-
-- Windows 11 Fluent Design
-- Glassmorphism
-- Acrylic Blur
-- Mica-inspired interface
-- Dark Mode
-- Light Mode
-- Smooth animations
-- High-DPI support
-- SVG icons
-- Native feel
-
----
-
-## Smart Popup
-
-The popup:
-
-- Appears only when needed
-- Never steals focus
-- Never interrupts typing
-- Shows the corrected text
-- Supports one-click replacement
-- Automatically positions near the typing area
-
----
-
-## Safe Replacement Engine
-
-Mubaddil safely replaces the incorrect text by:
-
-- Preserving cursor position
-- Backing up clipboard
-- Restoring clipboard
-- Avoiding duplicated characters
-- Preventing extra spaces
-
----
-
-## Performance
-
-Designed for daily usage.
-
-Target performance:
-
-| Metric | Target |
-|----------|---------|
+| Item | Target |
+|------|--------|
 | Startup | <100 ms |
 | Detection | <3 ms |
 | Replacement | <10 ms |
-| CPU Idle | <1% |
-| RAM Usage | <30 MB |
+| Idle CPU | <1% |
+| Memory | <30 MB |
 
 ---
 
-# Project Structure
+# 🔒 Safety
+
+Mubaddil never stores your typing.
+
+The application only processes text locally on your computer.
+
+No telemetry.
+
+No cloud processing.
+
+No user tracking.
+
+No data collection.
+
+---
+
+# 📦 Requirements
+
+- Windows 10
+- Windows 11
+- Python 3.11+
+- Visual Studio 2022
+- CMake
+- MSVC Compiler
+
+---
+
+# 🚀 Installation
+
+Clone the repository
+
+```bash
+git clone https://github.com/yourusername/Mubaddil.git
+```
+
+Enter the project
+
+```bash
+cd Mubaddil
+```
+
+Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Build the C++ core
+
+```bash
+cd hook
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
+Run
+
+```bash
+python main.py
+```
+
+---
+
+# 📂 Project Structure
 
 ```
 Mubaddil/
-
 │
-
 ├── hook/
 │   ├── Keyboard_hook.cpp
 │   ├── Keyboard_hook.h
@@ -172,222 +305,50 @@ Mubaddil/
 ├── core.py
 ├── ui.py
 ├── requirements.txt
+├── mubaddil.ico
 └── README.md
 ```
 
 ---
 
-# Architecture
+# 📋 Roadmap
 
-```
-                 +--------------------+
-                 |      User          |
-                 +---------+----------+
-                           |
-                           v
-              Windows Keyboard Events
-                           |
-                           v
-          +------------------------------+
-          |     C++ Keyboard Hook         |
-          +------------------------------+
-                           |
-                           v
-             Word Reconstruction Engine
-                           |
-                           v
-             Language Detection Engine
-                           |
-                           v
-             Keyboard Mapping Engine
-                           |
-                           v
-            Confidence Calculation Engine
-                           |
-                           v
-            Replacement Decision Engine
-                           |
-                           v
-               Python UI (PySide6)
-                           |
-                           v
-                  Smart Popup Window
-                           |
-                           v
-                Instant Text Replacement
-```
+- [ ] Native C++ Core
+- [ ] Low-Level Keyboard Hook
+- [ ] Confidence Engine
+- [ ] Popup UI
+- [ ] Auto Replace
+- [ ] Settings Window
+- [ ] Custom Dictionaries
+- [ ] Multi-language Support
+- [ ] Plugin System
+- [ ] Installer
+- [ ] Auto Update
 
 ---
 
-# Technologies
-
-## UI
-
-- PySide6
-- Qt Material
-- QtAwesome
-- SuperQt
-
----
-
-## Core
-
-- Modern C++20
-- Windows API
-- Win32 Hooks
-- STL
-- RAII
-- Smart Pointers
-
----
-
-## Python Libraries
-
-- keyboard
-- pynput
-- pyautogui
-- pyperclip
-- rapidfuzz
-- regex
-- loguru
-- watchdog
-- langdetect
-- cachetools
-- qasync
-- psutil
-
----
-
-# How It Works
-
-1. Install a global keyboard hook.
-
-2. Listen to keyboard events.
-
-3. Build complete words.
-
-4. Detect language.
-
-5. Calculate confidence.
-
-6. Convert keyboard layout.
-
-7. Validate conversion.
-
-8. Display popup if necessary.
-
-9. Replace text safely.
-
-10. Continue typing.
-
----
-
-# Design Goals
-
-- Extremely lightweight
-- Native Windows experience
-- High accuracy
-- Fast response
-- Minimal CPU usage
-- Minimal RAM usage
-- Modern interface
-- Stable architecture
-- Production-ready
-
----
-
-# Future Features
-
-- AI-assisted language prediction
-- Custom dictionaries
-- User-trained vocabulary
-- Cloud synchronization
-- Plugin system
-- OCR text correction
-- Clipboard history
-- Multiple keyboard layouts
-- Auto-learning engine
-- Linux support
-- macOS support
-
----
-
-# Development
-
-## Requirements
-
-- Windows 10 / 11
-- Python 3.11+
-- CMake
-- MSVC (Visual Studio 2022)
-- C++20
-
----
-
-## Install
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Build C++ Core
-
-```bash
-cd hook
-
-mkdir build
-
-cd build
-
-cmake ..
-
-cmake --build . --config Release
-```
-
----
-
-## Run
-
-```bash
-python main.py
-```
-
----
-
-# Contributing
+# 🤝 Contributing
 
 Contributions are welcome.
 
-Please:
-
-- Open an issue.
-- Fork the repository.
-- Create a feature branch.
-- Submit a pull request.
+Feel free to submit issues, feature requests, or pull requests to improve Mubaddil.
 
 ---
 
-# License
+# 📜 License
 
-MIT License
-
----
-
-# Author
-
-**Amr Shehata**
-
-Founder of **HORUS Startup**
+This project is licensed under the MIT License.
 
 ---
 
 <div align="center">
 
-### Mubaddil
+## مبدل | Mubaddil
 
-**Type Naturally.  
-We'll Handle the Keyboard.**
+### Type Naturally. Switch Intelligently.
+
+<img src="mubaddil.ico" width="90"/>
+
+Built with ❤️ for bilingual users.
 
 </div>
