@@ -4,7 +4,8 @@
 
 # Mubaddil | مبدل
 
-###[{{You Write ----> He Solve}}]
+### 
+You Write ----> He Solve
 
 ### The Intelligent Keyboard Layout Switcher for Windows
 
