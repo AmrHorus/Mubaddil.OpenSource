@@ -35,9 +35,6 @@ if(MSVC)
     add_compile_options(/wd4244)  # Conversion warning
 endif()
 
-# Windows SDK
-find_package(WINDOWSSDK REQUIRED)
-
 # Source Files
 set(SOURCES
     Keyboard_hook.cpp
@@ -101,25 +98,14 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     SOVERSION 1
 )
 
-# Output Directory
+# Output Directory - always output to bin/Release or bin/Debug relative to project root
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/Debug"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/Release"
-    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}/bin/RelWithDebInfo"
-)
-
-# Install Rules
-include(GNUInstallDirs)
-
-install(TARGETS ${PROJECT_NAME}
-    EXPORT MubaddilCoreTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-install(FILES ${HEADERS}
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mubaddil
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/../bin/Debug"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/../bin/Release"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_SOURCE_DIR}/../bin/RelWithDebInfo"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/../bin/Debug"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/../bin/Release"
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_SOURCE_DIR}/../bin/RelWithDebInfo"
 )
 
 # Generate compile_commands.json for IntelliSense
@@ -132,5 +118,5 @@ message(STATUS "Version: ${PROJECT_VERSION}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "MSVC Runtime: ${CMAKE_MSVC_RUNTIME_LIBRARY}")
-message(STATUS "Install Prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "Output Directory: ${CMAKE_SOURCE_DIR}/../bin/${CMAKE_BUILD_TYPE}")
 message(STATUS "")

@@ -512,6 +512,10 @@ fn mubaddil_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+// Dummy function to ensure the module is used (prevents linker errors on some platforms)
+#[allow(dead_code)]
+fn _ensure_module_used() {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

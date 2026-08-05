@@ -1,19 +1,28 @@
 ```
-# Executables and binaries
-*.exe
-*.bat
-build.exe
-
 # Build artifacts
+Release/
+*.spec
 build/
-dist/
 target/
 
 # Dependencies
-node_modules/
-.venv/
-venv/
-__pycache__/
+**/node_modules/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.mypy_cache/
+**/.pytest_cache/
+**/.gradle/
+
+# Rust specific
+**/Cargo.lock
+**/target/
+
+# CMake
+CMakeFiles/
+cmake-build-*/
+Makefile
+*.cmake
 
 # Logs and temp files
 *.log
@@ -23,13 +32,20 @@ __pycache__/
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
 ```
