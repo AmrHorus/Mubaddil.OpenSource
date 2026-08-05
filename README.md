@@ -4,6 +4,8 @@
 
 # Mubaddil | مبدل
 
+[{{You Write ----> He Solve}}]
+
 ### The Intelligent Keyboard Layout Switcher for Windows
 
 Automatically detects when you type using the wrong keyboard layout and fixes it instantly.
