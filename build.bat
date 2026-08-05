@@ -1,52 +1,25 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal EnableDelayedExpansion
+title Mubaddil Build
 
-title Mubaddil Build System
-
-echo =========================================
-echo        Mubaddil EXE Build Script
-echo =========================================
+echo ==========================================
+echo          Mubaddil Build System
+echo ==========================================
 echo.
 
-REM -------------------------------
-REM Configuration
-REM -------------------------------
-
-set APP_NAME=Mubaddil
-set MAIN_SCRIPT=main.py
-set BUILD_DIR=build
-set DIST_DIR=dist
-
-REM Change this if your main file is different
-if not exist "%MAIN_SCRIPT%" (
-    echo ERROR: %MAIN_SCRIPT% not found.
-    echo Please edit MAIN_SCRIPT in build.bat
-    pause
-    exit /b 1
-)
-
-
-REM -------------------------------
-REM Check Python
-REM -------------------------------
-
-echo Checking Python...
-
-python --version >nul 2>&1
-
+:: -------------------------------------------------
+:: Check Python
+:: -------------------------------------------------
+where python >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python not installed.
+    echo [ERROR] Python not found.
     pause
     exit /b 1
 )
 
-echo Python OK
-
-
-REM -------------------------------
-REM Create Virtual Environment
-REM -------------------------------
-
+:: -------------------------------------------------
+:: Create virtual environment
+:: -------------------------------------------------
 if not exist ".venv" (
     echo Creating virtual environment...
     python -m venv .venv
@@ -54,125 +27,128 @@ if not exist ".venv" (
 
 call .venv\Scripts\activate
 
-
-REM -------------------------------
-REM Upgrade tools
-REM -------------------------------
-
-echo Updating build tools...
-
+:: -------------------------------------------------
+:: Upgrade pip
+:: -------------------------------------------------
 python -m pip install --upgrade pip
-python -m pip install --upgrade setuptools wheel
 
-
-REM -------------------------------
-REM Install requirements
-REM -------------------------------
-
-if exist requirements.txt (
-    echo Installing requirements...
-    pip install -r requirements.txt
-) else (
-    echo WARNING: requirements.txt missing
-)
-
-
-REM -------------------------------
-REM Build Native Engine (optional)
-REM -------------------------------
-
-if exist Native (
-    echo.
-    echo Native engine detected.
-
-    where cmake >nul 2>&1
-
-    if errorlevel 1 (
-        echo WARNING: CMake not installed.
-        echo Skipping native build.
-    ) else (
-
-        echo Building C++ engine...
-
-        if not exist Native\build (
-            mkdir Native\build
-        )
-
-        cd Native\build
-
-        cmake ..
-        cmake --build . --config Release
-
-        cd ..\..
-    )
-)
-
-
-REM -------------------------------
-REM Install PyInstaller
-REM -------------------------------
-
-echo Installing PyInstaller...
+:: -------------------------------------------------
+:: Install dependencies
+:: -------------------------------------------------
+echo Installing Python packages...
+pip install -r requirements.txt
 
 pip install pyinstaller
 
+:: -------------------------------------------------
+:: Build C++ Hook
+:: -------------------------------------------------
+echo.
+echo Building native hook...
 
-REM -------------------------------
-REM Clean old builds
-REM -------------------------------
+if not exist hook (
+    echo [WARNING] hook folder not found.
+) else (
 
-echo Cleaning old builds...
+    if not exist hook\build (
+        mkdir hook\build
+    )
 
-rmdir /s /q "%BUILD_DIR%" 2>nul
-rmdir /s /q "%DIST_DIR%" 2>nul
+    pushd hook\build
 
+    cmake ..
 
-REM -------------------------------
-REM PyInstaller Build
-REM -------------------------------
+    if errorlevel 1 (
+        echo.
+        echo CMake configuration failed.
+        pause
+        exit /b 1
+    )
 
-echo Building EXE...
+    cmake --build . --config Release
 
-pyinstaller ^
- --name "%APP_NAME%" ^
- --noconfirm ^
- --clean ^
- --windowed ^
- --onefile ^
- --icon assets\icon.ico ^
- --add-data "assets;assets" ^
- "%MAIN_SCRIPT%"
+    if errorlevel 1 (
+        echo.
+        echo Native build failed.
+        pause
+        exit /b 1
+    )
 
+    popd
+)
 
-if errorlevel 1 (
+:: -------------------------------------------------
+:: Clean
+:: -------------------------------------------------
+echo.
+echo Cleaning previous builds...
+
+if exist build rmdir /s /q build
+if exist dist rmdir /s /q dist
+if exist __pycache__ rmdir /s /q __pycache__
+
+del /q *.spec >nul 2>&1
+
+:: -------------------------------------------------
+:: Detect native DLL
+:: -------------------------------------------------
+set DLL=
+
+for %%F in (
+    hook\build\Release\*.dll
+    hook\build\*.dll
+) do (
+    if exist "%%F" (
+        set DLL=%%F
+        goto dll_found
+    )
+)
+
+:dll_found
+
+if defined DLL (
+    echo Found native library:
+    echo %DLL%
+
+    pyinstaller ^
+        --clean ^
+        --noconfirm ^
+        --onefile ^
+        --windowed ^
+        --name Mubaddil ^
+        --icon mubaddil.ico ^
+        --add-data "mubaddil.ico;." ^
+        --add-data "%DLL%;." ^
+        main.py
+) else (
+    echo No native DLL found.
+    echo Building Python-only package...
+
+    pyinstaller ^
+        --clean ^
+        --noconfirm ^
+        --onefile ^
+        --windowed ^
+        --name Mubaddil ^
+        --icon mubaddil.ico ^
+        --add-data "mubaddil.ico;." ^
+        main.py
+)
+
+:: -------------------------------------------------
+:: Finished
+:: -------------------------------------------------
+if exist dist\Mubaddil.exe (
     echo.
-    echo BUILD FAILED
-    pause
-    exit /b 1
+    echo ==========================================
+    echo Build Successful!
+    echo.
+    echo EXE:
+    echo %CD%\dist\Mubaddil.exe
+    echo ==========================================
+) else (
+    echo.
+    echo Build failed.
 )
-
-
-REM -------------------------------
-REM Copy Native DLLs
-REM -------------------------------
-
-if exist Native\build\Release (
-    echo Copying native DLLs...
-
-    copy Native\build\Release\*.dll dist\ >nul
-)
-
-
-REM -------------------------------
-REM Finished
-REM -------------------------------
-
-echo.
-echo =========================================
-echo BUILD COMPLETE
-echo.
-echo EXE location:
-echo dist\%APP_NAME%.exe
-echo =========================================
 
 pause
