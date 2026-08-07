@@ -1,33 +1,50 @@
 ```
-# Executables and binaries
-*.exe
-*.bat
-build.exe
-
 # Build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 build/
 dist/
-target/
 
 # Dependencies
-node_modules/
-.venv/
 venv/
+.venv/
 __pycache__/
+*.egg-info/
+node_modules/
 
-# Logs and temp files
-*.log
-*.tmp
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# IDE
+.vscode/
+.idea/
 *.swp
+*.swo
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Editors
-.vscode/
-.idea/
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
 # OS
 .DS_Store
