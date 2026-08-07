@@ -1,35 +1,51 @@
 ```
-# Executables and binaries
-*.exe
-*.bat
-build.exe
-
 # Build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+
+# CMake build directories
 build/
-dist/
-target/
+cmake-build-*/
+_CacheData/
 
 # Dependencies
-node_modules/
-.venv/
 venv/
+.venv/
 __pycache__/
+*.egg-info/
+.Python
 
-# Logs and temp files
-*.log
-*.tmp
+# Rust build artifacts (since rust_core exists)
+target/
+
+# IDE files
+.vscode/
+.idea/
 *.swp
+*.swo
+*.tmp
 
-# Environment
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Environment files
 .env
 .env.local
 *.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
 ```
