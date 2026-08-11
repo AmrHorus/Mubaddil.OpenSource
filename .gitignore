@@ -1,11 +1,9 @@
 ```
-# Build artifacts
-build/
-target/
-
-# Dependencies
-Cargo.lock
-vendor/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
 # Logs and temp files
 *.log
@@ -20,7 +18,13 @@ vendor/
 .vscode/
 .idea/
 
-# OS generated files
-.DS_Store
-Thumbs.db
+# Dependencies
+.venv/
+venv/
+node_modules/
+
+# Build artifacts
+dist/
+build/
+target/
 ```
