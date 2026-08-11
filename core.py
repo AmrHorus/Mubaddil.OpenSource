@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import ctypes
-import ctypes.wintypes
+import sys
 import json
 import logging
 import threading
@@ -11,14 +10,19 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, ClassVar, Optional, Protocol, final
+from datetime import datetime
+
+# Try to import Rust core - fall back to Python if not available
+try:
+    import mubaddil_core
+    RUST_CORE_AVAILABLE = True
+except ImportError:
+    RUST_CORE_AVAILABLE = False
+    mubaddil_core = None
 
 # ─── إعداد التسجيل ───
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MubaddilCore")
-
-# ─── Win32 API ───
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
 
 WH_KEYBOARD_LL = 13
 WM_KEYDOWN = 0x0100

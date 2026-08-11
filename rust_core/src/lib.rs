@@ -2,64 +2,125 @@
 //! 
 //! This module provides the core engine for detecting and correcting
 //! keyboard layout mistakes in real-time using Windows low-level hooks.
+//!
+//! # Architecture
+//! 
+//! The Rust core handles:
+//! - Windows low-level keyboard hook (WH_KEYBOARD_LL)
+//! - Keyboard input processing
+//! - Arabic/English keyboard mapping
+//! - Text injection via SendInput
+//! - Thread-safe state management
+//!
+//! Python handles:
+//! - UI (PySide6)
+//! - Configuration management
+//! - High-level correction logic
+//! - Language detection heuristics
+//! - Application lifecycle
 
 use pyo3::prelude::*;
-use pyo3::exceptions::PyRuntimeError;
-use std::sync::atomic::{AtomicBool, Ordering};
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+use thiserror::Error;
 
 // Windows API types and constants
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, BOOL};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyboardLayout, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-    KEYEVENTF_UNICODE, MAPVK_KL_TO_VK, VK_BACK,
+    GetKeyboardLayout, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
+    KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VK_BACK, VK_SPACE,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, WH_KEYBOARD_LL, HHOOK, KBDLLHOOKSTRUCT,
+    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, WH_KEYBOARD_LL,
+    HHOOK, KBDLLHOOKSTRUCT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
-use windows_sys::Win32::System::Threading::GetThreadId;
 use windows_sys::Win32::Globalization::GetForegroundWindow;
 
-use strsim::levenshtein;
-use fuzzy_matcher::skim::SkimMatcherV2;
+/// Error types for the Mubaddil Core
+#[derive(Error, Debug)]
+pub enum MubaddilError {
+    #[error("Failed to install keyboard hook: {0}")]
+    HookInstallationFailed(String),
+    #[error("Failed to remove keyboard hook: {0}")]
+    HookRemovalFailed(String),
+    #[error("Engine is already running")]
+    EngineAlreadyRunning,
+    #[error("Engine is not running")]
+    EngineNotRunning,
+    #[error("Thread synchronization error: {0}")]
+    SyncError(String),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+    #[error("Windows API error: {0}")]
+    WindowsApiError(String),
+}
 
-/// Maximum word length to buffer before analysis
-const MAX_WORD_LENGTH: usize = 50;
+impl From<MubaddilError> for PyErr {
+    fn from(err: MubaddilError) -> PyErr {
+        match err {
+            MubaddilError::EngineAlreadyRunning => PyRuntimeError::new_err(err.to_string()),
+            MubaddilError::EngineNotRunning => PyRuntimeError::new_err(err.to_string()),
+            MubaddilError::InvalidInput(_) => PyValueError::new_err(err.to_string()),
+            _ => PyRuntimeError::new_err(err.to_string()),
+        }
+    }
+}
 
-/// Minimum word length to trigger detection
-const MIN_WORD_LENGTH: usize = 3;
+/// Result type alias for Mubaddil operations
+type MubaddilResult<T> = Result<T, MubaddilError>;
 
-/// Time threshold (ms) to consider a word complete
-const WORD_COMPLETE_THRESHOLD_MS: u64 = 2000;
+// ============================================================================
+// Keyboard Mapping Tables
+// ============================================================================
 
-/// Arabic-English keyboard mapping
+/// Arabic to English keyboard mapping (Saudi Arabic layout 101)
 /// When user types on Arabic layout but meant English
 const ARABIC_TO_ENGLISH: &[(char, char)] = &[
-    ('ث', 'e'), ('ص', 's'), ('ق', 'q'), ('ف', 'f'), ('غ', 'g'),
-    ('ع', 'a'), ('ه', 'h'), ('خ', 'j'), ('ح', 'c'), ('ج', 'd'),
-    ('د', 'i'), ('ط', 't'), ('ك', 'k'), ('ل', 'l'), ('ش', 'x'),
-    ('س', 'n'), ('ي', 'b'), ('ب', 'y'), ('لا', 'l'), ('ا', 'a'),
-    ('ت', 'u'), ('ن', 'm'), ('م', 'w'), ('ى', '/'), ('ة', 'p'),
-    ('ؤ', '\''), ('ر', 'o'), ('لا', 'l'), ('و', ','), ('.', '.'),
-    ('ظ', 'z'), ('ذ', '\\'), ('ز', '.'), ('ئ', ';'), ('ء', '\''),
-    ('>', '>'), ('<', '<'), ('؟', '?'), ('!', '!'), ('@', '@'),
-    ('#', '#'), ('$', '$'), ('%', '%'), ('^', '^'), ('&', '&'),
-    ('(', '('), (')', ')'), ('_', '-'), ('+', '='), ('[', '['),
-    (']', ']'), ('{', '{'), ('}', '}'), ('|', '|'), ('~', '~'),
-    ('`', '`'), ('-', '-'), ('=', '='), ('/', '/'), ('\\', '\\'),
-    (';', ';'), ('\'', '\''), (',', ','), ('.', '.'), ('?', '?'),
+    // Row 1 (numbers)
+    ('٠', '0'), ('١', '1'), ('٢', '2'), ('٣', '3'), ('٤', '4'),
+    ('٥', '5'), ('٦', '6'), ('٧', '7'), ('٨', '8'), ('٩', '9'),
+    // Row 2 (QWERTY top)
+    ('ض', 'q'), ('ص', 'w'), ('ث', 'e'), ('ق', 'r'), ('ف', 't'),
+    ('غ', 'y'), ('ع', 'u'), ('ه', 'i'), ('خ', 'o'), ('ح', 'p'),
+    ('ج', '['), ('د', ']'),
+    // Row 3 (ASDFG middle)
+    ('ش', 'a'), ('س', 's'), ('ي', 'd'), ('ب', 'f'), ('ل', 'g'),
+    ('ا', 'h'), ('ت', 'j'), ('ن', 'k'), ('م', 'l'), ('ك', ';'),
+    ('ط', '\''),
+    // Row 4 (ZXCVB bottom)
+    ('ئ', 'z'), ('ء', 'x'), ('ؤ', 'c'), ('ر', 'v'), ('لا', 'b'),
+    ('ى', 'n'), ('ة', 'm'), ('و', ','), ('ز', '.'), ('ظ', '/'),
+    // Additional characters
+    ('ذ', '`'), ('ّ', '~'), ('َ', 'q'), ('ً', 'w'), ('ُ', 'e'),
+    ('ٌ', 'r'), ('ل', 't'), ('إ', 'y'), ('\'', 'u'), ('÷', 'i'),
+    ('×', 'o'), ('؛', 'p'), ('<', '['), ('>', ']'), ('ِ', 'a'),
+    ('ٍ', 's'), (']', 'd'), ('[', 'f'), ('ل', 'g'), ('أ', 'h'),
+    ('ـ', 'j'), ('،', 'k'), ('/', 'l'), (':', ';'), ('"', '\''),
+    ('~', 'z'), ('ْ', 'x'), ('}', 'c'), ('{', 'v'), ('آ', 'b'),
+    ('\'', 'n'), ('?', '/'),
 ];
 
-/// English-Arabic keyboard mapping (reverse)
+/// English to Arabic keyboard mapping (reverse)
 const ENGLISH_TO_ARABIC: &[(char, char)] = &[
-    ('e', 'ث'), ('s', 'ص'), ('q', 'ق'), ('f', 'ف'), ('g', 'غ'),
-    ('a', 'ع'), ('h', 'ه'), ('j', 'خ'), ('c', 'ح'), ('d', 'ج'),
-    ('i', 'د'), ('t', 'ط'), ('k', 'ك'), ('l', 'ل'), ('x', 'ش'),
-    ('n', 'س'), ('b', 'ي'), ('y', 'ب'), ('u', 'ت'), ('m', 'م'),
-    ('w', 'م'), ('/', 'ى'), ('p', 'ة'), ('\'', 'ؤ'), ('o', 'ر'),
-    (',', 'و'), ('z', 'ظ'), ('\\', 'ذ'), ('.', 'ز'), (';', 'ئ'),
+    // Row 1 (numbers)
+    ('0', '٠'), ('1', '١'), ('2', '٢'), ('3', '٣'), ('4', '٤'),
+    ('5', '٥'), ('6', '٦'), ('7', '٧'), ('8', '٨'), ('9', '٩'),
+    // Row 2 (QWERTY top)
+    ('q', 'ض'), ('w', 'ص'), ('e', 'ث'), ('r', 'ق'), ('t', 'ف'),
+    ('y', 'غ'), ('u', 'ع'), ('i', 'ه'), ('o', 'خ'), ('p', 'ح'),
+    ('[', 'ج'), (']', 'د'),
+    // Row 3 (ASDFG middle)
+    ('a', 'ش'), ('s', 'س'), ('d', 'ي'), ('f', 'ب'), ('g', 'ل'),
+    ('h', 'ا'), ('j', 'ت'), ('k', 'ن'), ('l', 'م'), (';', 'ك'),
+    ('\'', 'ط'),
+    // Row 4 (ZXCVB bottom)
+    ('z', 'ئ'), ('x', 'ء'), ('c', 'ؤ'), ('v', 'ر'), ('b', 'لا'),
+    ('n', 'ى'), ('m', 'ة'), (',', 'و'), ('.', 'ز'), ('/', 'ظ'),
+    // Additional
+    ('`', 'ذ'), ('~', 'ّ'),
 ];
 
 /// Common English words for validation
@@ -71,16 +132,40 @@ const COMMON_ENGLISH_WORDS: &[&str] = &[
     "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
     "hello", "world", "test", "example", "keyboard", "layout", "switch",
     "typing", "correct", "error", "fix", "auto", "smart", "intelligent",
+    "when", "than", "then", "been", "has", "him", "first", "each", "its",
+    "new", "after", "two", "into", "other", "can", "had", "let", "could",
+    "come", "over", "just", "take", "make", "like", "know", "time", "very",
+    "see", "look", "more", "day", "way", "think", "good", "now", "old",
+    "also", "only", "most", "should", "even", "back", "own", "right",
+    "use", "any", "well", "still", "try", "left", "turn", "mean", "really",
+    "before", "great", "again", "off", "long", "great", "little", "own",
+    "after", "while", "around", "same", "game", "different", "important",
+    "such", "here", "place", "high", "show", "house", "point", "group",
+    "another", "begin", "start", "through", "question", "number", "part",
+    "child", "eye", "woman", "system", "program", "hand", "large", "small",
+    "end", "problem", "read", "include", "public", "follow", "stand",
+    "probably", "build", "nation", "country", "company", "side", "fact",
 ];
 
-/// Common Arabic words for validation (transliterated for demo)
+/// Common Arabic words for validation
 const COMMON_ARABIC_WORDS: &[&str] = &[
-    "مرحبا", "العالم", "اختبار", "مثال", "لوحة", "مفتاح", "تبديل",
-    "كتابة", "تصحيح", "خطأ", "إصلاح", "تلقائي", "ذكي", "عربي",
-    "انجليزي", "كلمة", "جملة", "نص", "رسالة", "بريد", "هاتف",
+    "في", "من", "على", "إلى", "عن", "أن", "إن", "كان", "قد", "لا",
+    "ما", "مع", "هو", "هي", "نحن", "أنا", "أنت", "هم", "كتاب", "بيت",
+    "بين", "منذ", "حتى", "ثم", "إذا", "لأن", "هذا", "ذلك", "تلك",
+    "الله", "محمد", "علي", "أحمد", "عمر", "خالد", "سعود", "عربي",
+    "شكرا", "مرحبا", "سلام", "صباح", "مساء", "ليلة", "يوم", "شهر", "سنة",
+    "عمل", "دراسة", "مدرسة", "جامعة", "طالب", "معلم", "طبيب", "مهندس",
+    "سيارة", "طائرة", "قطار", "حافلة", "طريق", "مدينة", "قرية", "بلد",
+    "ماء", "طعام", "خبز", "لحم", "دجاج", "سمك", "فواكه", "خضروات",
+    "كبير", "صغير", "جديد", "قديم", "جميل", "قبيح", "سريع", "بطيء",
+    "قوي", "ضعيف", "غني", "فقير", "سعيد", "حزين", "غاضب", "هادئ",
 ];
 
-/// Mapping from Arabic-layout gibberish to English
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/// Convert text typed with Arabic layout to English
 fn arabic_layout_to_english(text: &str) -> String {
     text.chars()
         .map(|c| {
@@ -93,22 +178,36 @@ fn arabic_layout_to_english(text: &str) -> String {
         .collect()
 }
 
-/// Mapping from English-layout gibberish to Arabic
+/// Convert text typed with English layout to Arabic
 fn english_layout_to_arabic(text: &str) -> String {
     text.chars()
         .map(|c| {
             ENGLISH_TO_ARABIC
                 .iter()
-                .find(|(english, _)| *english.to_ascii_lowercase() == c.to_ascii_lowercase())
+                .find(|(english, _)| english.to_ascii_lowercase() == c.to_ascii_lowercase())
                 .map(|(_, arabic)| *arabic)
                 .unwrap_or(c)
         })
         .collect()
 }
 
-/// Check if a string is likely a valid word in either language
+/// Check if a character is an Arabic letter
+fn is_arabic_char(c: char) -> bool {
+    matches!(c as u32,
+        0x0600..=0x06FF |     // Arabic
+        0xFB50..=0xFDFF |     // Arabic Presentation Forms-A
+        0xFE70..=0xFEFF       // Arabic Presentation Forms-B
+    )
+}
+
+/// Check if a character is an English letter
+fn is_english_letter(c: char) -> bool {
+    c.is_ascii_alphabetic()
+}
+
+/// Check if a string is likely a valid word
 fn is_valid_word(word: &str) -> bool {
-    if word.len() < MIN_WORD_LENGTH {
+    if word.len() < 2 {
         return false;
     }
 
@@ -124,27 +223,17 @@ fn is_valid_word(word: &str) -> bool {
         return true;
     }
 
-    // Fuzzy matching for English
-    let matcher = SkimMatcherV2::default();
-    for dict_word in COMMON_ENGLISH_WORDS.iter() {
-        if matcher.fuzzy_match(dict_word, &word_lower).is_some() {
-            return true;
-        }
-    }
-
-    // Levenshtein distance check for near-matches
-    for dict_word in COMMON_ENGLISH_WORDS.iter() {
-        if levenshtein(dict_word, &word_lower) <= 1 && word_lower.len() >= 4 {
-            return true;
-        }
+    // Simple heuristic: check if word has reasonable character distribution
+    if word.chars().all(|c| is_arabic_char(c) || is_english_letter(c) || c.is_ascii_digit()) {
+        return word.len() >= 2;
     }
 
     false
 }
 
 /// Detect if typed text is wrong layout and return corrected version
-fn detect_and_correct(typed_word: &str) -> Option<String> {
-    if typed_word.len() < MIN_WORD_LENGTH {
+fn detect_and_correct(typed_word: &str) -> Option<(String, String)> {
+    if typed_word.len() < 2 {
         return None;
     }
 
@@ -153,177 +242,40 @@ fn detect_and_correct(typed_word: &str) -> Option<String> {
         return None;
     }
 
-    // Try Arabic->English conversion
-    let converted_en = arabic_layout_to_english(typed_word);
-    if is_valid_word(&converted_en) {
-        return Some(converted_en);
+    // Analyze the word
+    let arabic_count = typed_word.chars().filter(|c| is_arabic_char(*c)).count();
+    let english_count = typed_word.chars().filter(|c| is_english_letter(*c)).count();
+    let total = typed_word.chars().count();
+
+    if total == 0 {
+        return None;
     }
 
-    // Try English->Arabic conversion
-    let converted_ar = english_layout_to_arabic(typed_word);
-    if is_valid_word(&converted_ar) {
-        return Some(converted_ar);
+    // Try Arabic->English conversion (user was on Arabic layout, meant English)
+    if arabic_count > 0 {
+        let converted_en = arabic_layout_to_english(typed_word);
+        if is_valid_word(&converted_en) {
+            return Some((typed_word.to_string(), converted_en));
+        }
+    }
+
+    // Try English->Arabic conversion (user was on English layout, meant Arabic)
+    if english_count > 0 {
+        let converted_ar = english_layout_to_arabic(typed_word);
+        if is_valid_word(&converted_ar) {
+            return Some((typed_word.to_string(), converted_ar));
+        }
     }
 
     None
 }
 
-/// Internal state of the engine
-#[derive(Debug)]
-struct EngineState {
-    /// Current buffered word
-    buffer: String,
-    /// Last key press time
-    last_key_time: Instant,
-    /// Current keyboard layout handle
-    current_layout: u64,
-    /// Is the engine actively processing
-    active: bool,
-}
-
-impl EngineState {
-    fn new() -> Self {
-        Self {
-            buffer: String::new(),
-            last_key_time: Instant::now(),
-            current_layout: 0,
-            active: true,
-        }
-    }
-
-    fn reset_buffer(&mut self) {
-        self.buffer.clear();
-    }
-
-    fn add_char(&mut self, c: char) {
-        if self.buffer.len() < MAX_WORD_LENGTH {
-            self.buffer.push(c);
-        }
-    }
-
-    fn remove_last_char(&mut self) {
-        self.buffer.pop();
-    }
-}
-
-/// Shared engine data protected by mutex
-struct SharedEngineData {
-    state: Mutex<EngineState>,
-    running: AtomicBool,
-    hook_handle: Mutex<*mut HHOOK>,
-}
-
-unsafe impl Send for SharedEngineData {}
-unsafe impl Sync for SharedEngineData {}
-
-impl SharedEngineData {
-    fn new() -> Self {
-        Self {
-            state: Mutex::new(EngineState::new()),
-            running: AtomicBool::new(false),
-            hook_handle: Mutex::new(std::ptr::null_mut()),
-        }
-    }
-}
-
-/// Global reference to the engine data for the hook callback
-static mut ENGINE_DATA: Option<Arc<SharedEngineData>> = None;
-
-/// Low-level keyboard hook callback
-unsafe extern "system" fn keyboard_hook_callback(
-    n_code: i32,
-    w_param: WPARAM,
-    l_param: LPARAM,
-) -> LRESULT {
-    const WM_KEYDOWN: WPARAM = 0x0100;
-    const WM_KEYUP: WPARAM = 0x0101;
-    const WM_SYSKEYDOWN: WPARAM = 0x0104;
-    const WM_SYSKEYUP: WPARAM = 0x0105;
-
-    if n_code < 0 {
-        return CallNextHookEx(*ENGINE_DATA.as_ref().unwrap().hook_handle.lock().unwrap(), n_code, w_param, l_param);
-    }
-
-    let engine_data = match ENGINE_DATA.as_ref() {
-        Some(data) => data,
-        None => return CallNextHookEx(std::ptr::null_mut(), n_code, w_param, l_param),
-    };
-
-    if !engine_data.running.load(Ordering::Relaxed) {
-        return CallNextHookEx(*engine_data.hook_handle.lock().unwrap(), n_code, w_param, l_param);
-    }
-
-    let is_key_down = w_param == WM_KEYDOWN || w_param == WM_SYSKEYDOWN;
-    let is_key_up = w_param == WM_KEYUP || w_param == WM_SYSKEYUP;
-
-    if is_key_down {
-        let kbd_struct = *(l_param as *const KBDLLHOOKSTRUCT);
-        let vk_code = kbd_struct.vkCode;
-        
-        let mut state_guard = match engine_data.state.lock() {
-            Ok(guard) => guard,
-            Err(_) => return CallNextHookEx(*engine_data.hook_handle.lock().unwrap(), n_code, w_param, l_param),
-        };
-
-        // Handle special keys
-        match vk_code {
-            // Backspace
-            8 => {
-                state_guard.remove_last_char();
-                state_guard.last_key_time = Instant::now();
-            }
-            // Space, Enter, Tab - word separators
-            32 | 13 | 9 => {
-                // Process the buffered word
-                if !state_guard.buffer.is_empty() {
-                    let word_to_check = state_guard.buffer.clone();
-                    drop(state_guard);
-                    
-                    if let Some(corrected) = detect_and_correct(&word_to_check) {
-                        replace_text(&word_to_check, &corrected);
-                    }
-                    
-                    state_guard = engine_data.state.lock().unwrap();
-                    state_guard.reset_buffer();
-                }
-                state_guard.last_key_time = Instant::now();
-            }
-            // Escape
-            27 => {
-                state_guard.reset_buffer();
-                state_guard.last_key_time = Instant::now();
-            }
-            // Regular character keys (A-Z, 0-9, etc.)
-            _ => {
-                if vk_code >= 65 && vk_code <= 90 {
-                    // A-Z keys
-                    let c = ((vk_code - 65) as u8 + b'A') as char;
-                    state_guard.add_char(c);
-                } else if vk_code >= 48 && vk_code <= 57 {
-                    // 0-9 keys
-                    let c = ((vk_code - 48) as u8 + b'0') as char;
-                    state_guard.add_char(c);
-                }
-                state_guard.last_key_time = Instant::now();
-
-                // Check for timeout-based word completion
-                let buffer_copy = state_guard.buffer.clone();
-                drop(state_guard);
-
-                if buffer_copy.len() >= MIN_WORD_LENGTH {
-                    if let Some(corrected) = detect_and_correct(&buffer_copy) {
-                        replace_text(&buffer_copy, &corrected);
-                    }
-                }
-            }
-        }
-    }
-
-    CallNextHookEx(*engine_data.hook_handle.lock().unwrap(), n_code, w_param, l_param)
-}
+// ============================================================================
+// Input Injection
+// ============================================================================
 
 /// Replace text by simulating backspaces and re-typing
-fn replace_text(original: &str, corrected: &str) {
+fn replace_text(original: &str, corrected: &str) -> MubaddilResult<()> {
     unsafe {
         let original_len = original.chars().count();
         
@@ -336,13 +288,16 @@ fn replace_text(original: &str, corrected: &str) {
             input.Anonymous.ki.wVk = VK_BACK as u16;
             input.Anonymous.ki.dwExtraInfo = 0;
             
-            SendInput(1, &mut input, std::mem::size_of::<INPUT>() as u32);
+            let sent = SendInput(1, &mut input, std::mem::size_of::<INPUT>() as u32);
+            if sent == 0 {
+                return Err(MubaddilError::WindowsApiError("Failed to send backspace".to_string()));
+            }
         }
 
         // Small delay between backspaces and typing
         thread::sleep(Duration::from_millis(10));
 
-        // Send corrected characters
+        // Send corrected characters using Unicode input
         for c in corrected.chars() {
             // Key down
             let mut input_down = INPUT {
@@ -353,7 +308,10 @@ fn replace_text(original: &str, corrected: &str) {
             input_down.Anonymous.ki.dwFlags = KEYEVENTF_UNICODE;
             input_down.Anonymous.ki.dwExtraInfo = 0;
             
-            SendInput(1, &mut input_down, std::mem::size_of::<INPUT>() as u32);
+            let sent = SendInput(1, &mut input_down, std::mem::size_of::<INPUT>() as u32);
+            if sent == 0 {
+                return Err(MubaddilError::WindowsApiError("Failed to send key down".to_string()));
+            }
 
             // Key up
             let mut input_up = INPUT {
@@ -364,23 +322,221 @@ fn replace_text(original: &str, corrected: &str) {
             input_up.Anonymous.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
             input_up.Anonymous.ki.dwExtraInfo = 0;
             
-            SendInput(1, &mut input_up, std::mem::size_of::<INPUT>() as u32);
+            let sent = SendInput(1, &mut input_up, std::mem::size_of::<INPUT>() as u32);
+            if sent == 0 {
+                return Err(MubaddilError::WindowsApiError("Failed to send key up".to_string()));
+            }
 
             // Tiny delay between characters for reliability
-            thread::sleep(Duration::from_millis(5));
+            thread::sleep(Duration::from_millis(3));
+        }
+    }
+    
+    Ok(())
+}
+
+// ============================================================================
+// Engine State Management
+// ============================================================================
+
+/// Internal state of the engine
+#[derive(Debug)]
+struct EngineState {
+    /// Current buffered word
+    buffer: String,
+    /// Last key press time
+    last_key_time: Instant,
+    /// Is the engine actively processing
+    active: bool,
+    /// Target window handle for corrections
+    target_hwnd: u64,
+}
+
+impl EngineState {
+    fn new() -> Self {
+        Self {
+            buffer: String::with_capacity(64),
+            last_key_time: Instant::now(),
+            active: true,
+            target_hwnd: 0,
+        }
+    }
+
+    fn reset_buffer(&mut self) {
+        self.buffer.clear();
+    }
+
+    fn add_char(&mut self, c: char) {
+        if self.buffer.len() < 100 {
+            self.buffer.push(c);
+        }
+    }
+
+    fn remove_last_char(&mut self) {
+        self.buffer.pop();
+    }
+
+    fn get_buffer(&self) -> String {
+        self.buffer.clone()
+    }
+}
+
+/// Shared engine data protected by mutex
+struct SharedEngineData {
+    state: Mutex<EngineState>,
+    running: AtomicBool,
+    hook_handle: Mutex<*mut HHOOK>,
+    event_counter: AtomicU64,
+}
+
+unsafe impl Send for SharedEngineData {}
+unsafe impl Sync for SharedEngineData {}
+
+impl SharedEngineData {
+    fn new() -> Self {
+        Self {
+            state: Mutex::new(EngineState::new()),
+            running: AtomicBool::new(false),
+            hook_handle: Mutex::new(std::ptr::null_mut()),
+            event_counter: AtomicU64::new(0),
         }
     }
 }
 
+/// Global reference to the engine data for the hook callback
+static mut ENGINE_DATA: Option<Arc<SharedEngineData>> = None;
+
+// ============================================================================
+// Keyboard Hook Implementation
+// ============================================================================
+
+/// Low-level keyboard hook callback
+/// 
+/// # Safety
+/// This function is called by Windows and must follow the hook callback convention.
+/// It accesses global static data which is safe because:
+/// 1. The data is Arc'd and properly synchronized
+/// 2. We only access it when n_code >= 0
+/// 3. We use proper locking for mutable access
+unsafe extern "system" fn keyboard_hook_callback(
+    n_code: i32,
+    w_param: WPARAM,
+    l_param: LPARAM,
+) -> LRESULT {
+    const HC_ACTION: i32 = 0;
+
+    if n_code != HC_ACTION {
+        return match ENGINE_DATA.as_ref() {
+            Some(data) => {
+                let hook = data.hook_handle.lock().unwrap();
+                CallNextHookEx(*hook, n_code, w_param, l_param)
+            }
+            None => 0,
+        };
+    }
+
+    let engine_data = match ENGINE_DATA.as_ref() {
+        Some(data) => data,
+        None => return 0,
+    };
+
+    if !engine_data.running.load(Ordering::Relaxed) {
+        let hook = engine_data.hook_handle.lock().unwrap();
+        return CallNextHookEx(*hook, n_code, w_param, l_param);
+    }
+
+    let is_key_down = w_param == WM_KEYDOWN || w_param == WM_SYSKEYDOWN;
+    let is_key_up = w_param == WM_KEYUP || w_param == WM_SYSKEYUP;
+
+    if is_key_down {
+        let kbd_struct = *(l_param as *const KBDLLHOOKSTRUCT);
+        let vk_code = kbd_struct.vkCode;
+        let scan_code = kbd_struct.scanCode;
+        
+        // Capture foreground window for later correction
+        let hwnd = GetForegroundWindow();
+        
+        let mut state_guard = match engine_data.state.lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                let hook = engine_data.hook_handle.lock().unwrap();
+                return CallNextHookEx(*hook, n_code, w_param, l_param);
+            }
+        };
+
+        state_guard.target_hwnd = hwnd as u64;
+
+        // Handle special keys
+        match vk_code {
+            // Backspace
+            8 => {
+                state_guard.remove_last_char();
+                state_guard.last_key_time = Instant::now();
+            }
+            // Space, Enter, Tab - word separators
+            32 | 13 | 9 => {
+                // Process the buffered word
+                if !state_guard.buffer.is_empty() {
+                    let word_to_check = state_guard.get_buffer();
+                    let target = state_guard.target_hwnd;
+                    drop(state_guard);
+                    
+                    // Attempt correction
+                    if let Some((original, corrected)) = detect_and_correct(&word_to_check) {
+                        // Store correction request
+                        let counter = engine_data.event_counter.fetch_add(1, Ordering::Relaxed);
+                        
+                        // For now, we just process directly
+                        // In a full implementation, this would queue for Python processing
+                        let _ = replace_text(&original, &corrected);
+                    }
+                    
+                    state_guard = engine_data.state.lock().unwrap();
+                    state_guard.reset_buffer();
+                    state_guard.target_hwnd = target;
+                }
+                state_guard.last_key_time = Instant::now();
+            }
+            // Escape
+            27 => {
+                state_guard.reset_buffer();
+                state_guard.last_key_time = Instant::now();
+            }
+            // Regular character keys
+            _ => {
+                // Try to get the character from the virtual key code
+                // This is a simplified approach - a full implementation would use ToUnicodeEx
+                if vk_code >= 65 && vk_code <= 90 {
+                    // A-Z keys
+                    let c = ((vk_code - 65) as u8 + b'A') as char;
+                    state_guard.add_char(c);
+                } else if vk_code >= 48 && vk_code <= 57 {
+                    // 0-9 keys
+                    let c = ((vk_code - 48) as u8 + b'0') as char;
+                    state_guard.add_char(c);
+                }
+                // Add more key ranges as needed
+                
+                state_guard.last_key_time = Instant::now();
+            }
+        }
+    }
+
+    let hook = engine_data.hook_handle.lock().unwrap();
+    CallNextHookEx(*hook, n_code, w_param, l_param)
+}
+
 /// Install the low-level keyboard hook
-fn install_hook(engine_data: Arc<SharedEngineData>) -> Result<(), String> {
+fn install_hook(engine_data: Arc<SharedEngineData>) -> MubaddilResult<()> {
     unsafe {
         let hook_proc = Some(keyboard_hook_callback as unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT);
         
         let hook = SetWindowsHookExW(WH_KEYBOARD_LL, hook_proc, std::ptr::null_mut(), 0);
         
         if hook.is_null() {
-            return Err("Failed to install keyboard hook".to_string());
+            return Err(MubaddilError::HookInstallationFailed(
+                "SetWindowsHookExW returned null".to_string()
+            ));
         }
 
         *engine_data.hook_handle.lock().unwrap() = hook;
@@ -413,13 +569,12 @@ fn hook_thread_main(engine_data: Arc<SharedEngineData>) {
 
     engine_data.running.store(true, Ordering::Relaxed);
 
-    // Message pump - required for hooks to work
-    // On Windows, we'd use GetMessage/PeekMessage here
-    // For cross-platform compatibility with PyO3, we use a simple loop
+    // Message pump - required for hooks to work on Windows
+    // Using a simple loop with sleep for cross-platform compatibility
     while engine_data.running.load(Ordering::Relaxed) {
         thread::sleep(Duration::from_millis(10));
         
-        // In a real Windows implementation, you would process messages here:
+        // In a pure Windows implementation, you would use:
         // let mut msg = std::mem::zeroed();
         // if PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
         //     TranslateMessage(&msg);
@@ -430,6 +585,10 @@ fn hook_thread_main(engine_data: Arc<SharedEngineData>) {
     // Uninstall hook when stopping
     uninstall_hook(&engine_data);
 }
+
+// ============================================================================
+// Python Bindings
+// ============================================================================
 
 /// Python-exposed MubaddilCore class
 #[pyclass]
@@ -496,12 +655,45 @@ impl MubaddilCore {
         let state = self.engine_data.state.lock().map_err(|e| {
             PyRuntimeError::new_err(format!("Failed to lock state: {}", e))
         })?;
-        Ok(state.buffer.clone())
+        Ok(state.get_buffer())
     }
 
     /// Manually trigger correction on a given text
     fn correct_text(&self, text: &str) -> PyResult<Option<String>> {
-        Ok(detect_and_correct(text))
+        match detect_and_correct(text) {
+            Some((_, corrected)) => Ok(Some(corrected)),
+            None => Ok(None),
+        }
+    }
+
+    /// Convert Arabic layout text to English
+    #[staticmethod]
+    fn arabic_to_english(text: &str) -> String {
+        arabic_layout_to_english(text)
+    }
+
+    /// Convert English layout text to Arabic
+    #[staticmethod]
+    fn english_to_arabic(text: &str) -> String {
+        english_layout_to_arabic(text)
+    }
+
+    /// Check if a character is Arabic
+    #[staticmethod]
+    fn is_arabic_char(c: char) -> bool {
+        is_arabic_char(c)
+    }
+
+    /// Check if a character is English
+    #[staticmethod]
+    fn is_english_letter(c: char) -> bool {
+        is_english_letter(c)
+    }
+
+    /// Get the version of the core library
+    #[staticmethod]
+    fn version() -> &'static str {
+        env!("CARGO_PKG_VERSION")
     }
 }
 
@@ -512,22 +704,32 @@ fn mubaddil_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+// ============================================================================
+// Tests
+// ============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_arabic_to_english_mapping() {
+    fn test_arabic_to_english_mapping_hello() {
         // "اثممخ" should map to "hello"
         let result = arabic_layout_to_english("اثممخ");
         assert_eq!(result, "hello");
     }
 
     #[test]
+    fn test_arabic_to_english_mapping_world() {
+        // "قورلد" should map to "world"
+        let result = arabic_layout_to_english("قورلد");
+        assert_eq!(result, "world");
+    }
+
+    #[test]
     fn test_english_to_arabic_mapping() {
         // "hello" typed on Arabic layout would produce Arabic chars
         let result = english_layout_to_arabic("hello");
-        // This depends on the mapping direction
         assert!(!result.is_empty());
     }
 
@@ -535,14 +737,33 @@ mod tests {
     fn test_detect_and_correct_hello() {
         // "اثممخ" is "hello" typed with Arabic layout
         let result = detect_and_correct("اثممخ");
-        assert_eq!(result, Some("hello".to_string()));
+        assert_eq!(result, Some(("اثممخ".to_string(), "hello".to_string())));
     }
 
     #[test]
     fn test_is_valid_word() {
         assert!(is_valid_word("hello"));
         assert!(is_valid_word("the"));
+        assert!(is_valid_word("مرحبا"));
+        assert!(is_valid_word("في"));
         assert!(!is_valid_word("xyzabc"));
         assert!(!is_valid_word("ab")); // Too short
+    }
+
+    #[test]
+    fn test_is_arabic_char() {
+        assert!(is_arabic_char('ع'));
+        assert!(is_arabic_char('ر'));
+        assert!(is_arabic_char('ب'));
+        assert!(!is_arabic_char('a'));
+        assert!(!is_arabic_char('1'));
+    }
+
+    #[test]
+    fn test_is_english_letter() {
+        assert!(is_english_letter('a'));
+        assert!(is_english_letter('Z'));
+        assert!(!is_english_letter('ع'));
+        assert!(!is_english_letter('1'));
     }
 }
