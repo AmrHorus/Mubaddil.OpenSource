@@ -202,7 +202,7 @@ mod tests {
         let mapper = KeyboardMapper::default();
         let result = mapper.english_to_arabic("hello");
         assert!(!result.is_empty());
-        assert!(result.chars().all(Self::is_arabic_char));
+        assert!(result.chars().all(KeyboardMapper::is_arabic_char));
     }
 
     #[test]
