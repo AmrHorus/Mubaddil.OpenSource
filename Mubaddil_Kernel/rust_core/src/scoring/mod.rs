@@ -1,5 +1,5 @@
 //! Scoring module for confidence calculation
-//! 
+//!
 //! This module provides confidence scoring for correction candidates.
 
 use crate::keyboard::LayoutId;
@@ -148,20 +148,40 @@ impl ScoringEngine {
 
     fn score_dictionary_match(&self, word: &str) -> f64 {
         let word_lower = word.to_lowercase();
-        
+
         // Check against common English words
         const COMMON_EN: &[&str] = &[
-            "the", "be", "to", "of", "and", "a", "in", "that", "have", "it",
-            "for", "not", "on", "with", "he", "as", "you", "do", "at", "this",
-            "but", "his", "by", "from", "they", "we", "say", "her", "she", "or",
-            "hello", "world", "test", "example", "keyboard", "layout",
+            "the", "be", "to", "of", "and", "a", "in", "that", "have", "it", "for", "not", "on",
+            "with", "he", "as", "you", "do", "at", "this", "but", "his", "by", "from", "they",
+            "we", "say", "her", "she", "or", "hello", "world", "test", "example", "keyboard",
+            "layout",
         ];
 
         // Check against common Arabic words
         const COMMON_AR: &[&str] = &[
-            "في", "من", "على", "إلى", "عن", "أن", "إن", "كان", "قد", "لا",
-            "ما", "مع", "هو", "هي", "نحن", "أنا", "أنت", "هم",
-            "مرحبا", "شكرا", "سلام", "صباح", "مساء",
+            "في",
+            "من",
+            "على",
+            "إلى",
+            "عن",
+            "أن",
+            "إن",
+            "كان",
+            "قد",
+            "لا",
+            "ما",
+            "مع",
+            "هو",
+            "هي",
+            "نحن",
+            "أنا",
+            "أنت",
+            "هم",
+            "مرحبا",
+            "شكرا",
+            "سلام",
+            "صباح",
+            "مساء",
         ];
 
         if COMMON_EN.contains(&word_lower.as_str()) || COMMON_AR.contains(&word) {
@@ -178,10 +198,12 @@ impl ScoringEngine {
 
     fn score_distribution(&self, _original: &str, corrected: &str) -> f64 {
         // Good distribution: consistent script in corrected text
-        let arabic_count = corrected.chars()
+        let arabic_count = corrected
+            .chars()
             .filter(|c| crate::keyboard::KeyboardMapper::is_arabic_char(*c))
             .count();
-        let english_count = corrected.chars()
+        let english_count = corrected
+            .chars()
             .filter(|c| crate::keyboard::KeyboardMapper::is_english_letter(*c))
             .count();
         let total = corrected.chars().count();
@@ -191,7 +213,7 @@ impl ScoringEngine {
         }
 
         let ratio = (arabic_count.max(english_count) as f64) / (total as f64);
-        
+
         // Higher score if corrected text has consistent script
         if ratio > 0.8 {
             1.0
@@ -211,7 +233,8 @@ impl ScoringEngine {
             return 0.5; // Length change reduces confidence
         }
 
-        let changed = original.chars()
+        let changed = original
+            .chars()
             .zip(corrected.chars())
             .filter(|(a, b)| a != b)
             .count();
@@ -240,7 +263,7 @@ mod tests {
     fn test_confidence_score_clamping() {
         let score = ConfidenceScore::new(1.5);
         assert!(score.value <= 1.0);
-        
+
         let score = ConfidenceScore::new(-0.5);
         assert!(score.value >= 0.0);
     }
@@ -248,12 +271,7 @@ mod tests {
     #[test]
     fn test_scoring_engine() {
         let engine = ScoringEngine::new();
-        let score = engine.calculate(
-            "اثممخ",
-            "hello",
-            LayoutId::ArabicSA,
-            LayoutId::EnglishUS,
-        );
+        let score = engine.calculate("اثممخ", "hello", LayoutId::ArabicSA, LayoutId::EnglishUS);
         assert!(score.value > 0.0);
     }
 }

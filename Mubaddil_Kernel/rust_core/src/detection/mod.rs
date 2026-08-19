@@ -1,17 +1,17 @@
 //! Detection engine for keyboard layout mismatch detection
-//! 
+//!
 //! This module orchestrates the detection pipeline:
 //! 1. Analyze input text
 //! 2. Generate candidate corrections
 //! 3. Score candidates
 //! 4. Return best suggestion
 
-use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
-use crate::keyboard::{KeyboardMapper, LayoutId};
-use crate::text::TextAnalysis;
-use crate::scoring::{ScoringEngine, ScoredCandidate};
 use crate::error::{MubaddilError, MubaddilResult};
+use crate::keyboard::{KeyboardMapper, LayoutId};
+use crate::scoring::{ScoredCandidate, ScoringEngine};
+use crate::text::TextAnalysis;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Detection result
 #[derive(Debug, Clone)]
@@ -64,11 +64,47 @@ impl DetectionEngine {
     fn load_default_dictionaries(&mut self) {
         // Common English words
         let en_words = [
-            "the", "be", "to", "of", "and", "a", "in", "that", "have", "it",
-            "for", "not", "on", "with", "he", "as", "you", "do", "at", "this",
-            "but", "his", "by", "from", "they", "we", "say", "her", "she", "or",
-            "hello", "world", "test", "example", "keyboard", "layout", "switch",
-            "google", "github", "microsoft", "openai",
+            "the",
+            "be",
+            "to",
+            "of",
+            "and",
+            "a",
+            "in",
+            "that",
+            "have",
+            "it",
+            "for",
+            "not",
+            "on",
+            "with",
+            "he",
+            "as",
+            "you",
+            "do",
+            "at",
+            "this",
+            "but",
+            "his",
+            "by",
+            "from",
+            "they",
+            "we",
+            "say",
+            "her",
+            "she",
+            "or",
+            "hello",
+            "world",
+            "test",
+            "example",
+            "keyboard",
+            "layout",
+            "switch",
+            "google",
+            "github",
+            "microsoft",
+            "openai",
         ];
         for word in en_words {
             self.english_dict.insert(word.to_lowercase());
@@ -76,9 +112,31 @@ impl DetectionEngine {
 
         // Common Arabic words
         let ar_words = [
-            "في", "من", "على", "إلى", "عن", "أن", "إن", "كان", "قد", "لا",
-            "ما", "مع", "هو", "هي", "نحن", "أنا", "أنت", "هم",
-            "مرحبا", "شكرا", "سلام", "صباح", "مساء", "كتاب", "بيت",
+            "في",
+            "من",
+            "على",
+            "إلى",
+            "عن",
+            "أن",
+            "إن",
+            "كان",
+            "قد",
+            "لا",
+            "ما",
+            "مع",
+            "هو",
+            "هي",
+            "نحن",
+            "أنا",
+            "أنت",
+            "هم",
+            "مرحبا",
+            "شكرا",
+            "سلام",
+            "صباح",
+            "مساء",
+            "كتاب",
+            "بيت",
         ];
         for word in ar_words {
             self.arabic_dict.insert(word.to_string());
@@ -87,8 +145,9 @@ impl DetectionEngine {
 
     /// Load dictionary from JSON data
     pub fn load_dictionary(&mut self, json_data: &str) -> MubaddilResult<()> {
-        let dict: DictionaryData = serde_json::from_str(json_data)
-            .map_err(|e| MubaddilError::InvalidInput(format!("Failed to parse dictionary JSON: {}", e)))?;
+        let dict: DictionaryData = serde_json::from_str(json_data).map_err(|e| {
+            MubaddilError::InvalidInput(format!("Failed to parse dictionary JSON: {}", e))
+        })?;
 
         for word in dict.en.common_words {
             self.english_dict.insert(word.to_lowercase());
@@ -111,7 +170,10 @@ impl DetectionEngine {
         let mut candidates = Vec::new();
 
         // Skip if text is too short or has digits/punctuation
-        if text.len() < self.config.min_word_length || analysis.has_digits || analysis.has_punctuation {
+        if text.len() < self.config.min_word_length
+            || analysis.has_digits
+            || analysis.has_punctuation
+        {
             return candidates;
         }
 
@@ -130,7 +192,7 @@ impl DetectionEngine {
                     LayoutId::ArabicSA,
                     LayoutId::EnglishUS,
                 );
-                
+
                 if score.value > 0.3 {
                     candidates.push(ScoredCandidate::new(
                         text.to_string(),
@@ -154,7 +216,7 @@ impl DetectionEngine {
                     LayoutId::EnglishUS,
                     LayoutId::ArabicSA,
                 );
-                
+
                 if score.value > 0.3 {
                     candidates.push(ScoredCandidate::new(
                         text.to_string(),
@@ -169,8 +231,12 @@ impl DetectionEngine {
         }
 
         // Sort by confidence descending
-        candidates.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
-        
+        candidates.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         candidates
     }
 
@@ -193,7 +259,7 @@ impl DetectionEngine {
 
         let word_lower = word.to_lowercase();
 
-        // Check dictionaries
+        // Check dictionaries first - these are definitely valid
         if self.english_dict.contains(&word_lower) {
             return true;
         }
@@ -201,22 +267,40 @@ impl DetectionEngine {
             return true;
         }
 
-        // Heuristic: reasonable character distribution
-        let arabic_count = word.chars()
+        // For unknown words, we need to be conservative
+        // Only consider it valid if it's a well-formed looking word
+        let arabic_count = word
+            .chars()
             .filter(|c| KeyboardMapper::is_arabic_char(*c))
             .count();
-        let english_count = word.chars()
+        let english_count = word
+            .chars()
             .filter(|c| KeyboardMapper::is_english_letter(*c))
             .count();
         let total = word.chars().count();
 
-        if total > 0 {
-            let ratio = (arabic_count.max(english_count) as f64) / (total as f64);
-            if ratio > 0.6 {
+        if total == 0 {
+            return false;
+        }
+
+        let ratio = (arabic_count.max(english_count) as f64) / (total as f64);
+
+        // Require very high script consistency for non-dictionary words
+        // AND reasonable length to avoid false positives on short gibberish
+        if ratio > 0.9 && total >= 6 {
+            // Additional check: look for character patterns typical of real words
+            // Arabic words typically have varied character shapes
+            // Gibberish from wrong layout often has repetitive patterns
+            let unique_ratio =
+                word.chars().collect::<std::collections::HashSet<_>>().len() as f64 / total as f64;
+
+            // Require good character diversity (real words use varied characters)
+            if unique_ratio > 0.5 {
                 return true;
             }
         }
 
+        // Default: not valid (allow candidate generation)
         false
     }
 }
@@ -240,7 +324,7 @@ mod tests {
         let engine = DetectionEngine::new(config);
         let analysis = TextAnalysis::analyze("اثممخ");
         let candidates = engine.generate_candidates("اثممخ", &analysis);
-        
+
         assert!(!candidates.is_empty());
         assert_eq!(candidates[0].corrected, "hello");
     }
@@ -251,7 +335,7 @@ mod tests {
         let engine = DetectionEngine::new(config);
         let analysis = TextAnalysis::analyze("hello");
         let candidates = engine.generate_candidates("hello", &analysis);
-        
+
         assert!(candidates.is_empty()); // Already valid
     }
 }

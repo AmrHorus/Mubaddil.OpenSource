@@ -1,49 +1,49 @@
 //! Mubaddil Kernel - Core Intelligence Engine
-//! 
+//!
 //! This is the core processing engine for Mubaddil, responsible for:
 //! - Keyboard layout mapping and transformation
 //! - Language/script detection
 //! - Candidate generation for corrections
 //! - Confidence scoring
 //! - Text analysis
-//! 
+//!
 //! # Architecture
-//! 
+//!
 //! The kernel is designed to be:
 //! - **Platform agnostic**: No Windows/Linux/macOS specific APIs
 //! - **UI independent**: No UI framework dependencies
 //! - **Memory safe**: All Rust safety guarantees apply
 //! - **Thread safe**: Can be used from multiple threads
 //! - **Fast**: Optimized for real-time keyboard processing
-//! 
+//!
 //! # Example Usage
-//! 
+//!
 //! ```rust
 //! use mubaddil_kernel::MubaddilKernel;
-//! 
+//!
 //! let kernel = MubaddilKernel::new();
 //! let result = kernel.analyze("ulv,");
-//! 
+//!
 //! if result.should_suggest {
 //!     println!("Suggestion: {}", result.suggestion);
 //! }
 //! ```
 
-pub mod keyboard;
-pub mod text;
-pub mod scoring;
 pub mod detection;
+pub mod keyboard;
+pub mod scoring;
+pub mod text;
 
 mod error;
 
+pub use detection::{DetectionEngine, DetectionResult};
 pub use error::{MubaddilError, MubaddilResult};
 pub use keyboard::{KeyboardLayout, KeyboardMapper, LayoutId};
+pub use scoring::{ConfidenceScore, ScoredCandidate, ScoringConfig};
 pub use text::{TextAnalysis, TextAnalyzer};
-pub use scoring::{ConfidenceScore, ScoringConfig, ScoredCandidate};
-pub use detection::{DetectionResult, DetectionEngine};
 
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 /// Configuration for the Mubaddil Kernel
 #[derive(Debug, Clone)]
@@ -115,7 +115,7 @@ impl AnalysisResult {
 }
 
 /// Main Mubaddil Kernel engine
-/// 
+///
 /// This is the primary entry point for using the Mubaddil correction engine.
 /// It orchestrates all components: keyboard mapping, text analysis,
 /// detection, and scoring.
@@ -155,13 +155,11 @@ impl MubaddilKernel {
     }
 
     /// Analyze text and return correction suggestion
-    /// 
+    ///
     /// This is the main entry point for text analysis.
     pub fn analyze(&self, text: &str) -> AnalysisResult {
         // Quick validation
-        if text.len() < self.config.min_word_length 
-            || text.len() > self.config.max_word_length 
-        {
+        if text.len() < self.config.min_word_length || text.len() > self.config.max_word_length {
             return AnalysisResult::no_suggestion(text.to_string());
         }
 
@@ -169,11 +167,10 @@ impl MubaddilKernel {
         let analysis = self.analyzer.analyze(text);
 
         // Skip URLs, emails, code if configured
-        if self.config.detect_urls_emails {
-            if analysis.is_likely_url(text) || analysis.is_likely_email(text) {
+        if self.config.detect_urls_emails
+            && (analysis.is_likely_url(text) || analysis.is_likely_email(text)) {
                 return AnalysisResult::no_suggestion(text.to_string());
             }
-        }
 
         if self.config.detect_code && analysis.is_likely_code(text) {
             return AnalysisResult::no_suggestion(text.to_string());
@@ -187,9 +184,11 @@ impl MubaddilKernel {
         }
 
         // Find best candidate
-        let best_candidate = candidates
-            .iter()
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        let best_candidate = candidates.iter().max_by(|a, b| {
+            a.confidence
+                .partial_cmp(&b.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         if let Some(candidate) = best_candidate {
             let should_suggest = candidate.confidence >= self.config.suggestion_threshold;
@@ -236,7 +235,8 @@ impl MubaddilKernel {
         source: LayoutId,
         target: LayoutId,
     ) -> ConfidenceScore {
-        self.detector.score_candidate(original, corrected, source, target)
+        self.detector
+            .score_candidate(original, corrected, source, target)
     }
 
     /// Load keyboard layouts from JSON data
