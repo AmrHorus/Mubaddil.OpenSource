@@ -1,26 +1,23 @@
 //! Keyboard layout mapping module
-//! 
+//!
 //! This module handles keyboard layout definitions and transformations
 //! between different layouts (e.g., English US ↔ Arabic Saudi).
 
+use crate::error::{MubaddilError, MubaddilResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::error::{MubaddilError, MubaddilResult};
 
 /// Identifier for a keyboard layout
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LayoutId {
     EnglishUS,
     ArabicSA,
+    #[default]
     Unknown,
     Custom(String),
 }
 
-impl Default for LayoutId {
-    fn default() -> Self {
-        LayoutId::Unknown
-    }
-}
 
 impl std::fmt::Display for LayoutId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -74,41 +71,107 @@ impl KeyboardMapper {
         // Arabic to English mapping (Saudi layout 101)
         let ar_to_en: Vec<(char, char)> = vec![
             // Numbers
-            ('٠', '0'), ('١', '1'), ('٢', '2'), ('٣', '3'), ('٤', '4'),
-            ('٥', '5'), ('٦', '6'), ('٧', '7'), ('٨', '8'), ('٩', '9'),
+            ('٠', '0'),
+            ('١', '1'),
+            ('٢', '2'),
+            ('٣', '3'),
+            ('٤', '4'),
+            ('٥', '5'),
+            ('٦', '6'),
+            ('٧', '7'),
+            ('٨', '8'),
+            ('٩', '9'),
             // Row 2 (QWERTY top)
-            ('ض', 'q'), ('ص', 'w'), ('ث', 'e'), ('ق', 'r'), ('ف', 't'),
-            ('غ', 'y'), ('ع', 'u'), ('ه', 'i'), ('خ', 'o'), ('ح', 'p'),
-            ('ج', '['), ('د', ']'),
+            ('ض', 'q'),
+            ('ص', 'w'),
+            ('ث', 'e'),
+            ('ق', 'r'),
+            ('ف', 't'),
+            ('غ', 'y'),
+            ('ع', 'u'),
+            ('ه', 'i'),
+            ('خ', 'o'),
+            ('ح', 'p'),
+            ('ج', '['),
+            ('د', ']'),
             // Row 3 (ASDFG middle)
-            ('ش', 'a'), ('س', 's'), ('ي', 'd'), ('ب', 'f'), ('ل', 'g'),
-            ('ا', 'h'), ('ت', 'j'), ('ن', 'k'), ('م', 'l'), ('ك', ';'),
+            ('ش', 'a'),
+            ('س', 's'),
+            ('ي', 'd'),
+            ('ب', 'f'),
+            ('ل', 'g'),
+            ('ا', 'h'),
+            ('ت', 'j'),
+            ('ن', 'k'),
+            ('م', 'l'),
+            ('ك', ';'),
             ('ط', '\''),
             // Row 4 (ZXCVB bottom)
-            ('ئ', 'z'), ('ء', 'x'), ('ؤ', 'c'), ('ر', 'v'),
-            ('ى', 'n'), ('ة', 'm'), ('و', ','), ('ز', '.'), ('ظ', '/'),
+            ('ئ', 'z'),
+            ('ء', 'x'),
+            ('ؤ', 'c'),
+            ('ر', 'v'),
+            ('ى', 'n'),
+            ('ة', 'm'),
+            ('و', ','),
+            ('ز', '.'),
+            ('ظ', '/'),
             // Additional
-            ('ذ', '`'), ('ّ', '~'),
+            ('ذ', '`'),
+            ('ّ', '~'),
         ];
 
         // English to Arabic mapping (reverse)
         let en_to_ar: Vec<(char, char)> = vec![
             // Numbers
-            ('0', '٠'), ('1', '١'), ('2', '٢'), ('3', '٣'), ('4', '٤'),
-            ('5', '٥'), ('6', '٦'), ('7', '٧'), ('8', '٨'), ('9', '٩'),
+            ('0', '٠'),
+            ('1', '١'),
+            ('2', '٢'),
+            ('3', '٣'),
+            ('4', '٤'),
+            ('5', '٥'),
+            ('6', '٦'),
+            ('7', '٧'),
+            ('8', '٨'),
+            ('9', '٩'),
             // Row 2
-            ('q', 'ض'), ('w', 'ص'), ('e', 'ث'), ('r', 'ق'), ('t', 'ف'),
-            ('y', 'غ'), ('u', 'ع'), ('i', 'ه'), ('o', 'خ'), ('p', 'ح'),
-            ('[', 'ج'), (']', 'د'),
+            ('q', 'ض'),
+            ('w', 'ص'),
+            ('e', 'ث'),
+            ('r', 'ق'),
+            ('t', 'ف'),
+            ('y', 'غ'),
+            ('u', 'ع'),
+            ('i', 'ه'),
+            ('o', 'خ'),
+            ('p', 'ح'),
+            ('[', 'ج'),
+            (']', 'د'),
             // Row 3
-            ('a', 'ش'), ('s', 'س'), ('d', 'ي'), ('f', 'ب'), ('g', 'ل'),
-            ('h', 'ا'), ('j', 'ت'), ('k', 'ن'), ('l', 'م'), (';', 'ك'),
+            ('a', 'ش'),
+            ('s', 'س'),
+            ('d', 'ي'),
+            ('f', 'ب'),
+            ('g', 'ل'),
+            ('h', 'ا'),
+            ('j', 'ت'),
+            ('k', 'ن'),
+            ('l', 'م'),
+            (';', 'ك'),
             ('\'', 'ط'),
             // Row 4
-            ('z', 'ئ'), ('x', 'ء'), ('c', 'ؤ'), ('v', 'ر'),
-            ('n', 'ى'), ('m', 'ة'), (',', 'و'), ('.', 'ز'), ('/', 'ظ'),
+            ('z', 'ئ'),
+            ('x', 'ء'),
+            ('c', 'ؤ'),
+            ('v', 'ر'),
+            ('n', 'ى'),
+            ('m', 'ة'),
+            (',', 'و'),
+            ('.', 'ز'),
+            ('/', 'ظ'),
             // Additional
-            ('`', 'ذ'), ('~', 'ّ'),
+            ('`', 'ذ'),
+            ('~', 'ّ'),
         ];
 
         self.mappings.insert(
@@ -164,8 +227,9 @@ impl KeyboardMapper {
             mappings: Option<HashMap<String, HashMap<String, String>>>,
         }
 
-        let data: LayoutData = serde_json::from_str(json_data)
-            .map_err(|e| MubaddilError::InvalidInput(format!("Failed to parse layout JSON: {}", e)))?;
+        let data: LayoutData = serde_json::from_str(json_data).map_err(|e| {
+            MubaddilError::InvalidInput(format!("Failed to parse layout JSON: {}", e))
+        })?;
 
         if let Some(layouts) = data.layouts {
             for (key, layout) in layouts {

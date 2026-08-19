@@ -1,5 +1,5 @@
 //! Mubaddil Kernel - Error Types
-//! 
+//!
 //! This module defines error types for the Mubaddil kernel.
 
 use thiserror::Error;
@@ -9,22 +9,22 @@ use thiserror::Error;
 pub enum MubaddilError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    
+
     #[error("Keyboard layout not found: {0}")]
     LayoutNotFound(String),
-    
+
     #[error("Mapping failed: {0}")]
     MappingFailed(String),
-    
+
     #[error("Dictionary error: {0}")]
     DictionaryError(String),
-    
+
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     #[error("JSON parsing error: {0}")]
     JsonError(String),
-    
+
     #[error("IO error: {0}")]
     IoError(String),
 }

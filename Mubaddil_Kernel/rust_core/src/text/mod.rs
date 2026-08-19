@@ -1,5 +1,5 @@
 //! Text analysis module
-//! 
+//!
 //! This module provides text analysis capabilities including:
 //! - Language/script detection
 //! - Character classification
@@ -45,8 +45,16 @@ impl TextAnalysis {
         }
 
         let total = text.chars().count();
-        let arabic_ratio = if total > 0 { arabic_count as f64 / total as f64 } else { 0.0 };
-        let english_ratio = if total > 0 { english_count as f64 / total as f64 } else { 0.0 };
+        let arabic_ratio = if total > 0 {
+            arabic_count as f64 / total as f64
+        } else {
+            0.0
+        };
+        let english_ratio = if total > 0 {
+            english_count as f64 / total as f64
+        } else {
+            0.0
+        };
 
         TextAnalysis {
             arabic_count,
@@ -63,8 +71,8 @@ impl TextAnalysis {
 
     /// Check if text is likely a URL
     pub fn is_likely_url(&self, text: &str) -> bool {
-        text.starts_with("http://") 
-            || text.starts_with("https://") 
+        text.starts_with("http://")
+            || text.starts_with("https://")
             || text.starts_with("www.")
             || (text.contains('.') && text.contains('/'))
     }
@@ -76,8 +84,13 @@ impl TextAnalysis {
 
     /// Check if text is likely code/syntax
     pub fn is_likely_code(&self, text: &str) -> bool {
-        text.contains('{') || text.contains('}') || text.contains('(') || text.contains(')') 
-            || text.contains("[]") || text.contains(';') || text.contains('=')
+        text.contains('{')
+            || text.contains('}')
+            || text.contains('(')
+            || text.contains(')')
+            || text.contains("[]")
+            || text.contains(';')
+            || text.contains('=')
     }
 
     /// Get the dominant script
