@@ -1,0 +1,47 @@
+{
+  "en": {
+    "common_words": [
+      "the", "be", "to", "of", "and", "a", "in", "that", "have", "it",
+      "for", "not", "on", "with", "he", "as", "you", "do", "at", "this",
+      "but", "his", "by", "from", "they", "we", "say", "her", "she", "or",
+      "an", "will", "my", "one", "all", "would", "there", "their", "what",
+      "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+      "hello", "world", "test", "example", "keyboard", "layout", "switch",
+      "typing", "correct", "error", "fix", "auto", "smart", "intelligent",
+      "when", "than", "then", "been", "has", "him", "first", "each", "its",
+      "new", "after", "two", "into", "other", "can", "had", "let", "could",
+      "come", "over", "just", "take", "make", "like", "know", "time", "very",
+      "see", "look", "more", "day", "way", "think", "good", "now", "old",
+      "also", "only", "most", "should", "even", "back", "own", "right",
+      "use", "any", "well", "still", "try", "left", "turn", "mean", "really",
+      "before", "great", "again", "off", "long", "little", "place", "high",
+      "show", "house", "point", "group", "another", "begin", "start",
+      "through", "question", "number", "part", "child", "eye", "woman",
+      "system", "program", "hand", "large", "small", "end", "problem",
+      "read", "include", "public", "follow", "stand", "probably", "build",
+      "nation", "country", "side", "fact", "hi", "hey", "ok", "okay",
+      "yes", "no", "please", "thanks", "good", "bad", "big", "small"
+    ],
+    "names": [
+      "Google", "GitHub", "OpenAI", "Microsoft", "Apple", "Amazon",
+      "Horus", "Ahmed", "Mohammed", "Ali", "Omar", "Khaled"
+    ]
+  },
+  "ar": {
+    "common_words": [
+      "في", "من", "على", "إلى", "عن", "أن", "إن", "كان", "قد", "لا",
+      "ما", "مع", "هو", "هي", "نحن", "أنا", "أنت", "هم", "كتاب", "بيت",
+      "بين", "منذ", "حتى", "ثم", "إذا", "لأن", "هذا", "ذلك", "تلك",
+      "الله", "محمد", "علي", "أحمد", "عمر", "خالد", "سعود", "عربي",
+      "شكرا", "مرحبا", "سلام", "صباح", "مساء", "ليلة", "يوم", "شهر", "سنة",
+      "عمل", "دراسة", "مدرسة", "جامعة", "طالب", "معلم", "طبيب", "مهندس",
+      "سيارة", "طائرة", "قطار", "حافلة", "طريق", "مدينة", "قرية", "بلد",
+      "ماء", "طعام", "خبز", "لحم", "دجاج", "سمك", "فواكه", "خضروات",
+      "كبير", "صغير", "جديد", "قديم", "جميل", "قبيح", "سريع", "بطيء",
+      "قوي", "ضعيف", "غني", "فقير", "سعيد", "حزين", "غاضب", "هادئ"
+    ],
+    "names": [
+      "جوجل", "مايكروسوفت", "أبل", "أمازون"
+    ]
+  }
+}
