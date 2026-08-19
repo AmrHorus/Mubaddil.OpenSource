@@ -176,7 +176,7 @@ impl ScoringEngine {
         0.3
     }
 
-    fn score_distribution(&self, original: &str, corrected: &str) -> f64 {
+    fn score_distribution(&self, _original: &str, corrected: &str) -> f64 {
         // Good distribution: consistent script in corrected text
         let arabic_count = corrected.chars()
             .filter(|c| crate::keyboard::KeyboardMapper::is_arabic_char(*c))

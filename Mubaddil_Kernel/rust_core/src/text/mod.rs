@@ -76,7 +76,8 @@ impl TextAnalysis {
 
     /// Check if text is likely code/syntax
     pub fn is_likely_code(&self, text: &str) -> bool {
-        text.contains("{}[]();=")
+        text.contains('{') || text.contains('}') || text.contains('(') || text.contains(')') 
+            || text.contains("[]") || text.contains(';') || text.contains('=')
     }
 
     /// Get the dominant script
