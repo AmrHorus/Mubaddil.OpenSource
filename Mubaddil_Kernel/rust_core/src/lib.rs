@@ -25,7 +25,9 @@
 //! let result = kernel.analyze("ulv,");
 //!
 //! if result.should_suggest {
-//!     println!("Suggestion: {}", result.suggestion);
+//!     if let Some(suggestion) = &result.suggestion {
+//!         println!("Suggestion: {}", suggestion);
+//!     }
 //! }
 //! ```
 
@@ -168,9 +170,10 @@ impl MubaddilKernel {
 
         // Skip URLs, emails, code if configured
         if self.config.detect_urls_emails
-            && (analysis.is_likely_url(text) || analysis.is_likely_email(text)) {
-                return AnalysisResult::no_suggestion(text.to_string());
-            }
+            && (analysis.is_likely_url(text) || analysis.is_likely_email(text))
+        {
+            return AnalysisResult::no_suggestion(text.to_string());
+        }
 
         if self.config.detect_code && analysis.is_likely_code(text) {
             return AnalysisResult::no_suggestion(text.to_string());
