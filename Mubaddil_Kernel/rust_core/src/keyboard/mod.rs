@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Identifier for a keyboard layout
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum LayoutId {
     EnglishUS,
     ArabicSA,
@@ -17,7 +16,6 @@ pub enum LayoutId {
     Unknown,
     Custom(String),
 }
-
 
 impl std::fmt::Display for LayoutId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -224,6 +222,7 @@ impl KeyboardMapper {
         #[derive(Deserialize)]
         struct LayoutData {
             layouts: Option<HashMap<String, KeyboardLayout>>,
+            #[allow(dead_code)]
             mappings: Option<HashMap<String, HashMap<String, String>>>,
         }
 
