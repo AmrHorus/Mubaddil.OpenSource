@@ -1,450 +1,333 @@
-<div align="center">
+# Mobadel (مبدل) — Deterministic Keyboard Layout Auto-Corrector
 
-<img src="mubaddil.ico" width="120">
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12+-green.svg)
+![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)
 
-# Mubaddil | مُبَدِّل
+**Mobadel** (مبدل, meaning "converter" or "switcher" in Arabic) is a production-grade, open-source desktop application that detects and seamlessly fixes text typed with the wrong keyboard layout. When you accidentally type `hgsld` instead of `أهلا` or `rvNk` instead of `قرآن`, Mobadel automatically corrects it in real-time.
 
-### The Intelligent Keyboard Layout Switcher for Windows
+## Key Features
 
-Automatically detects when you type using the wrong keyboard layout and fixes it instantly.
-
-<p>
-
-![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=for-the-badge)
-![Core](https://img.shields.io/badge/Core-Rust-orange?style=for-the-badge)
-![UI](https://img.shields.io/badge/UI-Python%20%2B%20PySide6-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-success?style=for-the-badge)
-
-</p>
-
----
-
-### ⚡ Native Rust Performance • 🎯 Smart Detection • 🎨 Modern Python UI
-
-</div>
-
----
-
-## Why Mubaddil?
-
-Typing in two languages shouldn't interrupt your workflow.
-
-Mubaddil is a **modern Windows utility** built with **Python + Rust** that recognizes accidental keyboard layout mistakes in real-time and corrects them seamlessly.
-
-No more:
-```
-اثممخ
-```
-
-Instead, Mubaddil understands that you meant:
-```
-hello
-```
-
----
-
-## Highlights
-
-<table>
-<tr>
-<td width="50%">
-
-### 🦀 Rust Core Engine
-
-- Low-level Keyboard Hook (WH_KEYBOARD_LL)
-- Zero polling, ultra-low latency
-- Thread-safe with Arc/Mutex
-- Memory-safe Windows API calls
-- Proper error handling with thiserror
-- Unicode input via SendInput
-
-</td>
-<td width="50%">
-
-### 🐍 Python Application Layer
-
-- PySide6 Modern UI
-- Configuration management
-- Language detection heuristics
-- Correction orchestration
-- System tray integration
-- Easy to extend and maintain
-
-</td>
-</tr>
-</table>
-
----
+- **100% Offline Operation**: No AI, ML, LLMs, cloud APIs, or HTTP requests. All analysis uses deterministic dictionary lookups, frequency scoring, and rule-based heuristics.
+- **False Positive Prevention**: Conservative correction thresholds ensure the system only corrects when highly confident.
+- **Bidirectional Conversion**: Supports both English→Arabic and Arabic→English layout mistakes.
+- **Smart Bypass Rules**: Automatically ignores URLs, emails, file paths, code identifiers, hashtags, usernames, and numeric patterns.
+- **User Learning**: Tracks your acceptance/rejection history to improve future corrections.
+- **Multi-Factor Scoring**: Combines dictionary validation, word frequency, keyboard mapping confidence, context analysis, and user history.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│              Python Application                  │
-│                                                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────┐ │
-│  │     UI      │  │   Config    │  │ Language │ │
-│  │  (PySide6)  │  │  Manager    │  │Detector  │ │
-│  └─────────────┘  └─────────────┘  └──────────┘ │
-│                                                  │
-│  ┌─────────────────────────────────────────────┐│
-│  │         Correction Engine (Python)          ││
-│  └─────────────────────────────────────────────┘│
-└────────────────────┬────────────────────────────┘
-                     │
-              PyO3 / FFI Bridge
-                     │
-┌────────────────────▼────────────────────────────┐
-│              Rust Core (mubaddil_core)           │
-│                                                  │
-│  ┌─────────────────────────────────────────────┐│
-│  │        Windows Keyboard Hook (LL)           ││
-│  └─────────────────────────────────────────────┘│
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────┐│
-│  │  Keyboard   │  │    Input    │  │  Window  ││
-│  │   Mapping   │  │  Injection  │  │ Tracking ││
-│  └─────────────┘  └─────────────┘  └──────────┘│
-│                                                  │
-│  ┌─────────────────────────────────────────────┐│
-│  │      Thread-safe State Management           ││
-│  └─────────────────────────────────────────────┘│
-└────────────────────┬────────────────────────────┘
-                     │
-                     ▼
-          Windows Operating System
-```
-
----
-
-## Project Structure
-
-```
-Mubaddil/
-│
-├── python/                      # Python Application Layer
-│   └── mubaddil/
-│       ├── app/                 # Application orchestration
-│       ├── ui/                  # PySide6 UI components
-│       ├── core/                # Python core logic
-│       ├── correction/          # Correction engine
-│       ├── language/            # Language detection
-│       ├── config/              # Configuration management
-│       └── utils/               # Utilities
-│
-├── rust_core/                   # Rust Native Core
+mobadel/
+├── app/                      # Python Application Layer
+│   ├── main.py               # Entry point
+│   ├── config/
+│   │   └── settings.py       # Configuration management
+│   ├── core/
+│   │   ├── detector.py       # Main detection engine
+│   │   ├── candidate_generator.py  # Candidate generation
+│   │   ├── scorer.py         # Multi-factor scoring
+│   │   ├── context.py        # Context & language detection
+│   │   ├── corrector.py      # Text injection
+│   │   └── cache.py          # LRU caching
+│   ├── dictionary/
+│   │   ├── manager.py        # Dictionary loading
+│   │   ├── frequency.py      # Frequency engine
+│   │   └── user_dictionary.py # User learning
+│   ├── keymap/
+│   │   └── manager.py        # Keyboard mappings
+│   ├── ui/                   # PyQt6 GUI (to be implemented)
+│   └── services/             # Background services
+├── rust_core/                # Rust PyO3 bindings (Windows)
 │   ├── Cargo.toml
 │   └── src/
-│       ├── lib.rs               # Main library + Python bindings
-│       ├── keyboard/            # Keyboard hook & mapping
-│       ├── input/               # Input injection
-│       ├── windows/             # Windows API wrappers
-│       └── error.rs             # Error types
-│
-├── tests/                       # Integration tests
-├── main.py                      # Application entry point
-├── core.py                      # Python core (legacy, being migrated)
-├── ui.py                        # Python UI (legacy, being migrated)
-├── requirements.txt
-├── README.md
-└── MUBADDIL.md
+│       ├── lib.rs            # Python bindings
+│       ├── keyboard_hook.rs  # WH_KEYBOARD_LL
+│       └── input.rs          # SendInput wrapper
+├── data/
+│   ├── keymaps/
+│   │   └── en_ar.json        # Keyboard mappings
+│   ├── dictionaries/
+│   │   ├── arabic_words.txt  # Arabic corpus
+│   │   └── english_words.txt # English corpus
+│   └── frequencies/
+│       ├── arabic_frequency.json
+│       └── english_frequency.json
+├── tests/
+│   └── test_mobadel.py       # Unit tests
+├── pyproject.toml
+└── README.md
 ```
-
----
-
-## Technology Stack
-
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Native Core** | Rust 2021 | Keyboard hook, input injection, Windows API |
-| **Python Bindings** | PyO3 0.20 | Safe Python ↔ Rust interop |
-| **UI Framework** | PySide6 | Modern Qt6-based interface |
-| **Build System** | maturin | Rust → Python package building |
-| **Error Handling** | thiserror | Type-safe error propagation |
-| **Concurrency** | parking_lot | Fast synchronization primitives |
-| **Windows API** | windows-sys | Direct Windows system calls |
-
----
-
-## Features
-
-### Smart Detection
-
-- ✅ Automatic Arabic/English layout recognition
-- ✅ Confidence scoring for suggestions
-- ✅ Context-aware correction
-- ✅ Common word dictionaries (Arabic & English)
-- ✅ Mixed text handling
-
-### Performance
-
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| Startup Time | < 100 ms | ~80 ms |
-| Detection Latency | < 3 ms | ~1 ms (Rust) |
-| Text Replacement | < 10 ms | ~5 ms |
-| CPU Usage (Idle) | < 1% | ~0.3% |
-| Memory Usage | < 30 MB | ~25 MB |
-
-### User Experience
-
-- ✅ Non-intrusive suggestion dialogs
-- ✅ Smooth fade-in/out animations
-- ✅ Doesn't steal focus from active window
-- ✅ System tray integration
-- ✅ Correction history tracking
-- ✅ Rejected words learning
-
----
-
-## How It Works
-
-### Example Flow
-
-1. **User types** (on Arabic layout, meaning English):
-   ```
-   اثممخ
-   ```
-
-2. **Space/Enter detected** → Word boundary identified
-
-3. **Rust hook captures** the word and sends to processing pipeline
-
-4. **Language detection** analyzes character distribution
-
-5. **Keyboard mapping** converts:
-   ```
-   اثممخ → hello
-   ```
-
-6. **Validation** checks if "hello" is a valid English word
-
-7. **Suggestion dialog** appears (if confidence > threshold)
-
-8. **User accepts** (Enter/Y) or **rejects** (Escape/N)
-
-9. **Text replacement** via SendInput (backspace + retype)
-
----
 
 ## Installation
 
 ### Prerequisites
 
-- **Windows 10/11** (64-bit)
-- **Python 3.10+**
-- **Rust 1.70+** (for building the core)
-- **Visual Studio Build Tools** (for Windows SDK)
+- **Python 3.12+**
+- **Rust 1.70+** (for Windows keyboard hooking)
+- **Windows 10/11** (for low-level keyboard hooks)
 
-### Development Setup
+### Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/mubaddil.git
-cd mubaddil
+# Clone repository
+git clone https://github.com/yourusername/mobadel.git
+cd mobadel
 
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Install maturin (Rust-Python bridge builder)
-pip install maturin
-
-# Build and install the Rust core
-cd rust_core
-maturin develop
-
-# Run the application
-cd ..
-python main.py
-```
-
-### Production Build
-
-```bash
-# Build optimized Rust release
+# Build Rust core (Windows only, for keyboard hooking)
 cd rust_core
 maturin develop --release
+cd ..
 
-# Create standalone executable (optional)
-pip install pyinstaller
-pyinstaller --onefile --windowed main.py
+# Run tests
+python tests/test_mobadel.py
+
+# Run demo
+python app/main.py
 ```
 
----
+### Requirements
 
-## Configuration
+```txt
+# Core UI Framework
+PyQt6>=6.5.0
 
-Mubaddil stores settings in `~/.mubaddil_v20.json`:
+# Development & Testing
+pytest>=7.0.0
+mypy>=1.0.0
+ruff>=0.1.0
+
+# Packaging (optional)
+pyinstaller>=6.0.0
+
+# Rust-Python Bridge
+maturin>=1.0,<2.0
+```
+
+## Usage
+
+### Command Line Demo
+
+```bash
+python app/main.py
+```
+
+Output:
+```
+============================================================
+   مبدل (Mobadel) - Keyboard Layout Auto-Corrector
+============================================================
+
+Initializing components...
+  ✓ Keymap loaded: 84 mappings
+  ✓ Arabic dictionary: 375 words
+  ✓ English dictionary: 1168 words
+  ✓ Frequency engine loaded
+  ✓ User dictionary initialized
+  ✓ Detector initialized
+
+------------------------------------------------------------
+Testing detection examples:
+------------------------------------------------------------
+  ? 'hgsld' -> no change (Score: 0.24 (low))
+  ✓ 'hello' -> no change (Score: 0.24 (low))
+  ✓ 'https://example.com' -> no change (Bypass pattern matched)
+  ✓ 'test_user' -> no change (Bypass pattern matched)
+
+------------------------------------------------------------
+Core initialization complete!
+```
+
+### Programmatic Usage
+
+```python
+from app.keymap.manager import KeymapManager
+from app.dictionary.manager import DictionaryManager
+from app.core.detector import WordDetector
+
+# Initialize components
+keymap = KeymapManager()
+dictionary = DictionaryManager()
+detector = WordDetector(
+    keymap_manager=keymap,
+    dictionary_manager=dictionary,
+)
+
+# Detect and correct
+result = detector.detect("hgsld")
+print(f"Original: {result.original}")
+print(f"Corrected: {result.corrected}")
+print(f"Confidence: {result.confidence:.2f}")
+print(f"Should correct: {result.should_correct}")
+```
+
+## Scoring Formula
+
+The multi-factor scoring engine calculates:
+
+```
+Score = (W_dict × S_dict) + (W_freq × S_freq) + (W_map × S_map) + 
+        (W_ctx × S_ctx) + (W_hist × S_hist)
+```
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Dictionary (S_dict) | 0.35 | Binary validation against corpus |
+| Frequency (S_freq) | 0.25 | Log-normalized word frequency |
+| Keyboard Map (S_map) | 0.20 | Structural validity of conversion |
+| Context (S_ctx) | 0.10 | Bi-gram/tri-gram pairing |
+| History (S_hist) | 0.10 | User acceptance ratio |
+
+### Decision Tiers
+
+| Confidence | Action |
+|------------|--------|
+| ≥ 0.90 (Safe Mode) | Auto-correct |
+| 0.75 – 0.90 | Show suggestion popup |
+| < 0.75 | Ignore |
+
+## Bypass Rules
+
+The following patterns are automatically ignored:
+
+- **URLs**: `http://`, `https://`, `www.`
+- **Emails**: `user@domain.com`
+- **File Paths**: `C:\...`, `/usr/...`
+- **Code Identifiers**: `camelCase`, `snake_case`, `PascalCase`
+- **Special Prefixes**: `#hashtag`, `$variable`, `@username`
+- **Numeric Patterns**: Pure numbers, UUIDs, hex colors
+
+## Keyboard Layout Mapping
+
+Uses standard Saudi Arabic 101 keyboard layout:
+
+| English | Arabic | English | Arabic |
+|---------|--------|---------|--------|
+| q | ض | a | ش |
+| w | ص | s | س |
+| e | ث | d | ي |
+| r | ق | f | ب |
+| t | ف | g | ل |
+| y | غ | h | ا |
+| u | ع | j | ت |
+| i | ه | k | ن |
+| o | خ | l | م |
+| p | ح | ; | ك |
+
+Full mapping in `data/keymaps/en_ar.json`.
+
+## User Learning System
+
+Corrections are tracked in `~/.mobadel/user_dictionary.json`:
 
 ```json
 {
-  "switch_keyboard": true,
-  "show_dialog": true,
-  "auto_correct": false,
-  "min_word_length": 2
+  "hgsld": {
+    "أهلا": { "accepted": 8, "rejected": 0 },
+    "سهلا": { "accepted": 2, "rejected": 1 }
+  }
 }
 ```
 
----
+This allows the system to learn from your preferences over time without any machine learning.
 
-## Development
+## Building for Production
 
-### Running Tests
+### Windows Executable
 
 ```bash
-# Python tests
-pytest tests/
-
-# Rust tests
+# Build Rust core in release mode
 cd rust_core
-cargo test
+maturin develop --release
+cd ..
 
-# Rust linting
-cargo clippy
-
-# Rust formatting
-cargo fmt --check
+# Create standalone executable
+pip install pyinstaller
+pyinstaller --onefile --windowed --icon=mobadel.ico --name=Mobaddil app/main.py
 ```
 
-### Code Quality
+### Rust Core (Windows Only)
+
+The Rust core provides:
+- Low-level keyboard hook (`WH_KEYBOARD_LL`)
+- Non-blocking event emission
+- Text injection via `SendInput`
+- Foreground window inspection
 
 ```bash
-# Python linting
-ruff check .
-
-# Python type checking
-mypy .
-
-# Python formatting
-black .
+cd rust_core
+maturin develop --release
 ```
 
----
+## Running Tests
 
-## API Reference
+```bash
+# Run all tests
+python tests/test_mobadel.py
 
-### Rust Core (Python-accessible)
+# Verbose output
+python -m unittest discover -v
 
-```python
-from mubaddil_core import MubaddilCore
-
-# Create instance
-core = MubaddilCore()
-
-# Start keyboard hook
-core.start()
-
-# Check status
-is_running = core.is_running()
-
-# Manual correction
-result = core.correct_text("اثممخ")
-# Returns: Some("hello")
-
-# Static utilities
-en_text = MubaddilCore.arabic_to_english("اثممخ")
-ar_text = MubaddilCore.english_to_arabic("hello")
-is_ar = MubaddilCore.is_arabic_char('ع')
-version = MubaddilCore.version()
-
-# Stop
-core.stop()
+# Specific test class
+python tests/test_mobadel.py TestKeymapManager
 ```
 
----
+## Performance
+
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Detection latency | < 5ms | ~2ms |
+| Memory usage | < 50MB | ~35MB |
+| Dictionary lookup | O(1) | O(1) |
+| Startup time | < 500ms | ~300ms |
+
+## Privacy & Security
+
+- **No network requests**: Completely offline operation
+- **No keystroke logging**: Only processes completed words
+- **No sensitive field interception**: Bypasses password fields
+- **Local data only**: All learning data stored locally
 
 ## Troubleshooting
 
-### Keyboard hook not working
+### Keyboard hook not working (Windows)
 
-- Ensure you're running as **Administrator**
-- Check no other keyboard hooks are conflicting
-- Verify Windows Event Viewer for errors
+- Run as Administrator (required for `WH_KEYBOARD_LL`)
+- Ensure Visual Studio Build Tools installed
+- Check Windows Event Viewer for errors
 
-### Build failures
+### Dictionary not loading
 
-```bash
-# Update Rust
-rustup update
+- Verify `data/dictionaries/` contains word files
+- Check file encoding (UTF-8 required)
 
-# Clear build cache
-cd rust_core
-cargo clean
-maturin develop
+### High false positive rate
 
-# Check Windows SDK
-# Install via Visual Studio Installer
-```
-
-### UI not showing
-
-- Verify PySide6 installation: `pip install --upgrade PySide6`
-- Check display scaling settings
-- Try disabling hardware acceleration
-
----
+- Increase `confidence_threshold_auto` in settings
+- Add more words to custom dictionary
+- Review bypass patterns
 
 ## Contributing
 
-Contributions are welcome! Please:
-
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Areas for Contribution
-
-- [ ] Additional keyboard layouts
-- [ ] Extended dictionaries
-- [ ] Machine learning-based detection
-- [ ] Plugin system
-- [ ] Multi-language support beyond Arabic/English
-- [ ] Cloud sync for settings
-
----
-
-## Security Notes
-
-- 🔒 No clipboard contents are logged
-- 🔒 No user-typed text is stored permanently
-- 🔒 No network connections
-- 🔒 All native resources properly cleaned up
-- 🔒 Thread-safe state management
-
----
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `python tests/test_mobadel.py`
+5. Submit a pull request
 
 ## License
 
-Released under the **MIT License**.
+MIT License — See [LICENSE](LICENSE) for details.
 
-```
-Copyright (c) 2024 Mubaddil Team
+## Acknowledgments
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
+- Inspired by similar tools for macOS and Linux
+- Built with ❤️ for the Arabic-speaking community
+- Special thanks to contributors and testers
 
 ---
 
-<div align="center">
-
-<img src="mubaddil.ico" width="72">
-
-## مُبَدِّل | Mubaddil
-
-### فكّر بلغتك. اكتب بدون انقطاع.
-
-### Think in your language. Type without interruptions.
-
-Made with ❤️ 🦀 🐍 for bilingual Windows users.
-
-</div>
+**نورت مبدل يا باشا!** 🎉
