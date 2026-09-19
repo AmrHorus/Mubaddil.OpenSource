@@ -1,51 +1,57 @@
 ```
-# Python
+# Dependencies
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environment
-.venv/
 venv/
 env/
 ENV/
+.venv/
+.env
+.env.local
+.env.*
+.envrc
+.env.localrc
+poetry.lock
+Pipfile.lock
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
 
-# IDE
+# Build artifacts
+build/
+dist/
+*.egg
+*.whl
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.o
+*.obj
+target/
+.gradle/
+.cargo/
+
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *.tmp
-
-# Logs
 *.log
-
-# Coverage
-.coverage
-htmlcov/
-.coverage.*
-.cache
-.tox/
-.nox/
-
-# Data
 .DS_Store
 Thumbs.db
+
+# Rust specific
+Cargo.lock
+**/target/
+**/Cargo.lock
 ```

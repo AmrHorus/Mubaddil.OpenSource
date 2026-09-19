@@ -9,6 +9,3 @@ ruff>=0.1.0
 
 # Packaging (optional, for production builds)
 pyinstaller>=6.0.0
-
-# Rust-Python Bridge (installed via maturin)
-# Run: pip install maturin && maturin develop

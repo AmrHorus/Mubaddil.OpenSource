@@ -2,7 +2,6 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.12+-green.svg)
-![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)
 
 **Mobadel** (مبدل, meaning "converter" or "switcher" in Arabic) is a production-grade, open-source desktop application that detects and seamlessly fixes text typed with the wrong keyboard layout. When you accidentally type `hgsld` instead of `أهلا` or `rvNk` instead of `قرآن`, Mobadel automatically corrects it in real-time.
 
@@ -14,6 +13,7 @@
 - **Smart Bypass Rules**: Automatically ignores URLs, emails, file paths, code identifiers, hashtags, usernames, and numeric patterns.
 - **User Learning**: Tracks your acceptance/rejection history to improve future corrections.
 - **Multi-Factor Scoring**: Combines dictionary validation, word frequency, keyboard mapping confidence, context analysis, and user history.
+- **Pure Python Implementation**: No Rust, no compilation required - just install Python dependencies and run!
 
 ## Architecture
 
@@ -28,7 +28,7 @@ mobadel/
 │   │   ├── candidate_generator.py  # Candidate generation
 │   │   ├── scorer.py         # Multi-factor scoring
 │   │   ├── context.py        # Context & language detection
-│   │   ├── corrector.py      # Text injection
+│   │   ├── corrector.py      # Text injection (ctypes SendInput)
 │   │   └── cache.py          # LRU caching
 │   ├── dictionary/
 │   │   ├── manager.py        # Dictionary loading
@@ -38,12 +38,6 @@ mobadel/
 │   │   └── manager.py        # Keyboard mappings
 │   ├── ui/                   # PyQt6 GUI (to be implemented)
 │   └── services/             # Background services
-├── rust_core/                # Rust PyO3 bindings (Windows)
-│   ├── Cargo.toml
-│   └── src/
-│       ├── lib.rs            # Python bindings
-│       ├── keyboard_hook.rs  # WH_KEYBOARD_LL
-│       └── input.rs          # SendInput wrapper
 ├── data/
 │   ├── keymaps/
 │   │   └── en_ar.json        # Keyboard mappings
@@ -55,7 +49,10 @@ mobadel/
 │       └── english_frequency.json
 ├── tests/
 │   └── test_mobadel.py       # Unit tests
-├── pyproject.toml
+├── core.py                   # Core engine (keyboard hook, detector)
+├── ui.py                     # UI components
+├── main.py                   # Main application entry
+├── requirements.txt
 └── README.md
 ```
 
@@ -64,8 +61,7 @@ mobadel/
 ### Prerequisites
 
 - **Python 3.12+**
-- **Rust 1.70+** (for Windows keyboard hooking)
-- **Windows 10/11** (for low-level keyboard hooks)
+- **Windows 10/11** (for low-level keyboard hooks via ctypes)
 
 ### Quick Start
 
@@ -77,16 +73,11 @@ cd mobadel
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Build Rust core (Windows only, for keyboard hooking)
-cd rust_core
-maturin develop --release
-cd ..
-
 # Run tests
 python tests/test_mobadel.py
 
 # Run demo
-python app/main.py
+python main.py
 ```
 
 ### Requirements
@@ -102,9 +93,6 @@ ruff>=0.1.0
 
 # Packaging (optional)
 pyinstaller>=6.0.0
-
-# Rust-Python Bridge
-maturin>=1.0,<2.0
 ```
 
 ## Usage
@@ -112,7 +100,7 @@ maturin>=1.0,<2.0
 ### Command Line Demo
 
 ```bash
-python app/main.py
+python main.py
 ```
 
 Output:
@@ -239,27 +227,9 @@ This allows the system to learn from your preferences over time without any mach
 ### Windows Executable
 
 ```bash
-# Build Rust core in release mode
-cd rust_core
-maturin develop --release
-cd ..
-
 # Create standalone executable
 pip install pyinstaller
-pyinstaller --onefile --windowed --icon=mobadel.ico --name=Mobaddil app/main.py
-```
-
-### Rust Core (Windows Only)
-
-The Rust core provides:
-- Low-level keyboard hook (`WH_KEYBOARD_LL`)
-- Non-blocking event emission
-- Text injection via `SendInput`
-- Foreground window inspection
-
-```bash
-cd rust_core
-maturin develop --release
+pyinstaller --onefile --windowed --icon=mubaddil.ico --name=Mobaddil main.py
 ```
 
 ## Running Tests
@@ -295,8 +265,7 @@ python tests/test_mobadel.py TestKeymapManager
 
 ### Keyboard hook not working (Windows)
 
-- Run as Administrator (required for `WH_KEYBOARD_LL`)
-- Ensure Visual Studio Build Tools installed
+- Run as Administrator (required for low-level hooks)
 - Check Windows Event Viewer for errors
 
 ### Dictionary not loading
