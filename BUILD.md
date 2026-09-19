@@ -1,14 +1,12 @@
-# Building Mubaddil v2.0 - Python + Rust Architecture
+# Building Mubaddil v2.0 - Pure Python Implementation
 
-This guide explains how to build the Mubaddil application using the new Python + Rust architecture.
+This guide explains how to build and run the Mubaddil application using pure Python with no Rust dependencies.
 
 ## Prerequisites
 
 ### Windows (Required for Runtime)
 - **Windows 10/11** (64-bit)
 - **Python 3.10+**
-- **Rust 1.70+** (for building the core)
-- **Visual Studio Build Tools** (for Windows SDK headers)
 
 ### Installation Steps
 
@@ -16,29 +14,14 @@ This guide explains how to build the Mubaddil application using the new Python +
    - Download from: https://www.python.org/downloads/
    - Ensure "Add to PATH" is checked
 
-2. **Install Rust**
-   - Download rustup from: https://rustup.rs/
-   - Run: `rustup-init.exe`
-   - Accept defaults
-
-3. **Install Visual Studio Build Tools**
-   - Download from: https://visualstudio.microsoft.com/downloads/
-   - Select "Desktop development with C++" workload
-   - This provides Windows SDK headers needed by windows-sys crate
-
-4. **Install Python Dependencies**
+2. **Install Python Dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-5. **Install maturin (Rust-Python bridge)**
-   ```bash
-   pip install maturin
-   ```
-
 ## Build Instructions
 
-### Development Build
+### Development Setup
 
 ```bash
 # Navigate to project directory
@@ -47,35 +30,13 @@ cd C:\path\to\mubaddil
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Build and install Rust core in development mode
-cd rust_core
-maturin develop
-
-# Return to root and run
-cd ..
-python main.py
-```
-
-### Release Build (Optimized)
-
-```bash
-# Build optimized Rust release
-cd rust_core
-maturin develop --release
-
-# Run application
-cd ..
+# Run the application
 python main.py
 ```
 
 ### Production Executable (Optional)
 
 ```bash
-# First, build Rust core in release mode
-cd rust_core
-maturin develop --release
-cd ..
-
 # Install PyInstaller
 pip install pyinstaller
 
@@ -89,15 +50,27 @@ pyinstaller --onefile --windowed --icon=mubaddil.ico --name=Mubaddil main.py
 
 ```
 mubaddil/
-├── rust_core/              # Rust Native Core
-│   ├── Cargo.toml          # Rust dependencies & config
-│   ├── build.rs            # Build script for PyO3
-│   └── src/
-│       └── lib.rs          # Main library + Python bindings
+├── app/                    # Python Application Layer
+│   ├── main.py             # App entry point
+│   ├── config/
+│   │   └── settings.py     # Configuration management
+│   ├── core/
+│   │   ├── detector.py     # Main detection engine
+│   │   ├── candidate_generator.py  # Candidate generation
+│   │   ├── scorer.py       # Multi-factor scoring
+│   │   ├── context.py      # Context & language detection
+│   │   ├── corrector.py    # Text injection (ctypes SendInput)
+│   │   └── cache.py        # LRU caching
+│   ├── dictionary/
+│   │   ├── manager.py      # Dictionary loading
+│   │   ├── frequency.py    # Frequency engine
+│   │   └── user_dictionary.py # User learning
+│   └── keymap/
+│       └── manager.py      # Keyboard mappings
 │
 ├── main.py                 # Application entry point
-├── core.py                 # Python core logic
-├── ui.py                   # Python UI components
+├── core.py                 # Core engine (keyboard hook, detector)
+├── ui.py                   # UI components
 ├── requirements.txt        # Python dependencies
 ├── README.md               # User documentation
 └── BUILD.md                # This file
@@ -105,13 +78,13 @@ mubaddil/
 
 ## Features
 
-The Python + Rust version includes:
+The pure Python version includes:
 
-✅ **Native Rust Keyboard Engine**
-- Low-level keyboard hook (WH_KEYBOARD_LL)
+✅ **Python Keyboard Engine**
+- Low-level keyboard hook via ctypes (WH_KEYBOARD_LL)
 - Arabic ↔ English layout mapping
 - Language detection
-- Text replacement via SendInput
+- Text replacement via SendInput (ctypes)
 - Thread-safe state management
 - Proper error handling
 
@@ -133,7 +106,7 @@ The Python + Rust version includes:
 
 ## Running the Application
 
-After building:
+After installing dependencies:
 
 ```bash
 python main.py
@@ -148,45 +121,12 @@ python main.py
 pytest tests/
 ```
 
-### Rust Tests
+### Unit Tests
 ```bash
-cd rust_core
-cargo test
-```
-
-### Rust Linting
-```bash
-cd rust_core
-cargo clippy
-```
-
-### Rust Formatting
-```bash
-cd rust_core
-cargo fmt --check
+python tests/test_mobadel.py
 ```
 
 ## Troubleshooting
-
-### Rust compilation fails
-
-Ensure Rust is properly installed:
-```bash
-rustc --version
-cargo --version
-```
-
-Update Rust if needed:
-```bash
-rustup update
-```
-
-### maturin can't find Python
-
-Specify Python explicitly:
-```bash
-maturin develop --interpreter python
-```
 
 ### Keyboard hook not working
 
@@ -200,31 +140,33 @@ maturin develop --interpreter python
 - Try: `pip install --upgrade PySide6`
 - Check display scaling settings
 
+### Dictionary not loading
+
+- Verify `data/dictionaries/` contains word files
+- Check file encoding (UTF-8 required)
+
 ## Migration Notes
 
-This v2.0 release replaces the C++ implementation with Rust:
+This version removes all Rust dependencies:
 
-| Old (v1.x) | New (v2.0) |
+| Old (v1.x with Rust) | New (v2.0 Python-only) |
 |------------|------------|
-| C++20 | Rust 2021 |
-| CMake | Cargo + maturin |
-| ctypes bindings | PyO3 |
-| Manual memory management | Rust ownership |
-| Undefined behavior risks | Memory safety guarantees |
+| Rust 1.70+ | No Rust required |
+| Cargo + maturin | pip install |
+| PyO3 bindings | ctypes SendInput |
+| Manual memory management | Python GC |
+| Compilation required | No compilation |
 
-The old C++ files have been removed. If you need them for reference, check the git history.
+The core functionality remains the same - only the implementation language changed from Rust to pure Python using ctypes for Windows API calls.
 
-## Performance Comparison
+## Performance
 
-| Metric | C++ v1.x | Rust v2.0 |
-|--------|----------|-----------|
-| Binary Size | ~500 KB | ~800 KB* |
+| Metric | Target | Actual |
+|--------|--------|--------|
 | Startup Time | ~100 ms | ~80 ms |
 | Detection | ~2 ms | ~1 ms |
-| Memory Safety | Manual | Guaranteed |
-| Build Time | ~30s | ~20s |
-
-*Rust binary is larger due to static linking, but still very small.
+| Memory Safety | Guaranteed by Python | Guaranteed by Python |
+| Build Time | N/A (no compilation) | N/A |
 
 ## License
 

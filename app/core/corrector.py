@@ -3,7 +3,83 @@ Mobadel Corrector
 Handles text correction and injection.
 """
 
+import ctypes
+import ctypes.wintypes
+import time
 from typing import Optional
+
+
+# Windows API constants for SendInput
+VK_BACK = 0x08
+INPUT_KEYBOARD = 1
+KEYEVENTF_KEYDOWN = 0x0000
+KEYEVENTF_KEYUP = 0x0002
+
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", ctypes.wintypes.WORD),
+        ("wScan", ctypes.wintypes.WORD),
+        ("dwFlags", ctypes.wintypes.DWORD),
+        ("time", ctypes.wintypes.DWORD),
+        ("dwExtraInfo", ctypes.wintypes.DWORD),
+    ]
+
+
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", ctypes.wintypes.LONG),
+        ("dy", ctypes.wintypes.LONG),
+        ("mouseData", ctypes.wintypes.DWORD),
+        ("dwFlags", ctypes.wintypes.DWORD),
+        ("time", ctypes.wintypes.DWORD),
+        ("dwExtraInfo", ctypes.wintypes.DWORD),
+    ]
+
+
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = [
+        ("uMsg", ctypes.wintypes.DWORD),
+        ("wParamL", ctypes.wintypes.WORD),
+        ("wParamH", ctypes.wintypes.WORD),
+    ]
+
+
+class INPUT_UNION(ctypes.Union):
+    _fields_ = [
+        ("ki", KEYBDINPUT),
+        ("mi", MOUSEINPUT),
+        ("hi", HARDWAREINPUT),
+    ]
+
+
+class INPUT(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.wintypes.DWORD),
+        ("union", INPUT_UNION),
+    ]
+
+
+# Load Windows libraries
+user32 = ctypes.windll.user32
+SendInput = user32.SendInput
+SendInput.argtypes = [ctypes.wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
+SendInput.restype = ctypes.wintypes.UINT
+
+
+def _create_key_input(vk: int, key_up: bool = False) -> INPUT:
+    """Create an INPUT structure for a keyboard event."""
+    inp = INPUT()
+    inp.type = INPUT_KEYBOARD
+    inp.union.ki.wVk = vk
+    inp.union.ki.dwFlags = KEYEVENTF_KEYUP if key_up else 0
+    return inp
+
+
+def _send_key(vk: int, press: bool = True) -> None:
+    """Send a single key press or release."""
+    inp = _create_key_input(vk, not press)
+    SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
 
 
 class TextCorrector:
@@ -79,27 +155,13 @@ class KeyboardInjector:
     """
     Simulates keyboard input for text injection.
     
-    This is a Python implementation. For production use on Windows,
-    this would delegate to the Rust core via PyO3 bindings.
+    Pure Python implementation using Windows SendInput API via ctypes.
+    No Rust dependencies required.
     """
     
-    def __init__(self, use_rust_backend: bool = False):
-        """
-        Initialize the injector.
-        
-        Args:
-            use_rust_backend: Whether to use Rust backend (Windows only)
-        """
-        self._use_rust = use_rust_backend
-        self._rust_module = None
-        
-        if use_rust_backend:
-            try:
-                import mubaddil_core
-                self._rust_module = mubaddil_core
-            except ImportError:
-                print("Warning: Rust backend not available, using Python fallback")
-                self._use_rust = False
+    def __init__(self):
+        """Initialize the injector."""
+        pass
     
     def send_backspaces(self, count: int, delay_ms: int = 12) -> bool:
         """
@@ -112,23 +174,16 @@ class KeyboardInjector:
         Returns:
             True if successful
         """
-        if self._use_rust and self._rust_module:
-            try:
-                # Would call Rust function here
-                # self._rust_module.send_backspaces(count, delay_ms)
-                pass
-                return True
-            except Exception as e:
-                print(f"Rust backend error: {e}")
-        
-        # Python fallback - would use pyautogui or similar
-        # For now, just simulate
-        import time
-        for _ in range(count):
-            # In real implementation, would use ctypes to call SendInput
-            time.sleep(delay_ms / 1000.0)
-        
-        return True
+        try:
+            for _ in range(count):
+                _send_key(VK_BACK, press=True)
+                _send_key(VK_BACK, press=False)
+                if delay_ms > 0:
+                    time.sleep(delay_ms / 1000.0)
+            return True
+        except Exception as e:
+            print(f"Error sending backspaces: {e}")
+            return False
     
     def send_text(self, text: str, delay_ms: int = 3) -> bool:
         """
@@ -141,30 +196,28 @@ class KeyboardInjector:
         Returns:
             True if successful
         """
-        if self._use_rust and self._rust_module:
-            try:
-                # Would call Rust function here
-                # self._rust_module.send_text(text, delay_ms)
-                pass
-                return True
-            except Exception as e:
-                print(f"Rust backend error: {e}")
-        
-        # Python fallback
-        import time
-        for char in text:
-            # In real implementation, would use ctypes to call SendInput
-            time.sleep(delay_ms / 1000.0)
-        
-        return True
+        try:
+            for char in text:
+                # Get virtual key code for character
+                vk_code = ord(char.upper())
+                _send_key(vk_code, press=True)
+                _send_key(vk_code, press=False)
+                if delay_ms > 0:
+                    time.sleep(delay_ms / 1000.0)
+            return True
+        except Exception as e:
+            print(f"Error sending text: {e}")
+            return False
     
-    def inject_correction(self, original: str, corrected: str) -> bool:
+    def inject_correction(self, original: str, corrected: str, delay_backspace: int = 12, delay_text: int = 3) -> bool:
         """
         Perform a complete correction injection.
         
         Args:
             original: Original text to replace
             corrected: Corrected text to insert
+            delay_backspace: Delay between backspace keystrokes in milliseconds
+            delay_text: Delay between text keystrokes in milliseconds
             
         Returns:
             True if successful
@@ -172,12 +225,11 @@ class KeyboardInjector:
         backspaces = len(original)
         
         # Send backspaces
-        if not self.send_backspaces(backspaces):
+        if not self.send_backspaces(backspaces, delay_backspace):
             return False
         
         # Small delay between backspaces and new text
-        import time
         time.sleep(0.01)
         
         # Send corrected text
-        return self.send_text(corrected)
+        return self.send_text(corrected, delay_text)
