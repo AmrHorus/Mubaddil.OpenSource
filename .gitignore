@@ -1,57 +1,42 @@
 ```
-# Dependencies
-__pycache__/
+# Compiled Python files
 *.pyc
-*.pyo
-*.pyd
-.Python
+__pycache__/
+
+# Virtual environments
 venv/
-env/
-ENV/
 .venv/
 .env
 .env.local
-.env.*
-.envrc
-.env.localrc
-poetry.lock
-Pipfile.lock
-*.egg-info/
-.eggs/
-.mypy_cache/
-.pytest_cache/
-.coverage
-htmlcov/
-coverage/
+*.env.*
 
-# Build artifacts
-build/
-dist/
-*.egg
-*.whl
-*.so
-*.dylib
-*.dll
-*.exe
-*.out
-*.o
-*.obj
-target/
-.gradle/
-.cargo/
+# Logs
+*.log
 
-# IDE and editor files
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *.tmp
-*.log
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Coverage reports
+coverage/
+htmlcov/
+*.coverage
+
+# Dependency caches
+node_modules/
+.mypy_cache/
+.pytest_cache/
+.gradle/
+
+# System files
 .DS_Store
 Thumbs.db
-
-# Rust specific
-Cargo.lock
-**/target/
-**/Cargo.lock
 ```

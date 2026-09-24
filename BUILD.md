@@ -152,7 +152,7 @@ This version removes all Rust dependencies:
 | Old (v1.x with Rust) | New (v2.0 Python-only) |
 |------------|------------|
 | Rust 1.70+ | No Rust required |
-| Cargo + maturin | pip install |
+| Cargo + build tools | pip install |
 | PyO3 bindings | ctypes SendInput |
 | Manual memory management | Python GC |
 | Compilation required | No compilation |
