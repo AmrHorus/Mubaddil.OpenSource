@@ -78,11 +78,11 @@ def main():
     print("Core initialization complete!")
     print()
     print("Note: This is a console demonstration.")
-    print("For the full GUI application, run with PyQt6 installed:")
-    print("  python -m app.ui.main_window")
+    print("For the full GUI application, run with PySide6 installed:")
+    print("  python main.py")
     print()
-    print("For Windows system-wide keyboard hooking, the Rust core")
-    print("must be built and installed via maturin.")
+    print("For Windows system-wide keyboard hooking, the Python core")
+    print("uses ctypes with Windows API (no compilation required).")
     print("=" * 60)
     
     return 0
